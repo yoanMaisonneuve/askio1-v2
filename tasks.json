@@ -1,0 +1,7 @@
+[
+  "Recherche web : quels servo-moteurs légers (< 50g, couple > 2 kg.cm) pour un robot bipède 3D imprimable ?",
+  "Définir l'architecture mécanique minimale d'un robot mobile imprimable en PLA : nombre de DOF, articulations critiques",
+  "Identifier les composants électroniques nécessaires : microcontrôleur (ESP32 vs Raspberry Pi Pico), IMU, batterie LiPo",
+  "Recherche web : frameworks open-source de locomotion pour robots bipèdes (ROS2, MuJoCo, PyBullet) — avantages/inconvénients",
+  "Concevoir la feuille de route technique du robot : phases impression → assemblage → firmware → apprentissage moteur"
+]
