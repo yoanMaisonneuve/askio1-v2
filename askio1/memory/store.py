@@ -246,9 +246,28 @@ class MemoryStore:
     def _load_mea(self, path: Path) -> Optional[MeaEntry]:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-            # Reconstuire ImportanceMetadata
+
+            # ── Détection format v1 (schemas.MemoryEntry, avant Phase 2) ──────
+            if "type" in data and "importance_metadata" not in data:
+                logger.debug(f"[MemoryStore] migration v1→v2 : {path.name}")
+                schema_entry = SchemaEntry(
+                    id          = data.get("id", path.stem),
+                    type        = data.get("type", "fact"),
+                    scope       = data.get("scope", "mission"),
+                    context     = data.get("context", {}),
+                    summary     = data.get("summary", ""),
+                    details     = data.get("details", ""),
+                    links       = data.get("links", []),
+                    importance  = data.get("importance", "medium"),
+                    created_at  = data.get("created_at", ""),
+                )
+                mea = self._bridge_to_mea(schema_entry)
+                self._resave_mea(mea, path)   # réécriture en format v2
+                return mea
+
+            # ── Format v2 (mea_core.MemoryEntry) ─────────────────────────────
             im_data = data.pop("importance_metadata", {})
-            im_data.pop("weights", None)   # champ non stocké comme kwarg simple
+            im_data.pop("weights", None)
             logs_data = data.pop("access_logs", [])
             data.pop("checksum", None)
 
