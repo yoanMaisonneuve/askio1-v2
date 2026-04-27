@@ -245,6 +245,16 @@ def run_continuous(goal: str = "Développer un système cognitif autonome",
         mem_agent.reflect(mission_id=session_id)
         cloop.session_end(session_id, session_log)
 
+        # Génération automatique du compte-rendu quotidien
+        try:
+            from journal.generate_daily import generate_report, save_report
+            logger.info("[Continuous] génération compte-rendu quotidien...")
+            report = generate_report()
+            report_path = save_report(report)
+            logger.info(f"[Continuous] compte-rendu : {report_path}")
+        except Exception as e:
+            logger.warning(f"[Continuous] compte-rendu échoué (non bloquant) : {e}")
+
     usage = llm.usage_stats()
     logger.info(f"Usage total — anthropic={usage['anthropic']} ollama={usage['ollama']} errors={usage['errors']}")
     logger.info(f"Log : {LOG_FILE}")
