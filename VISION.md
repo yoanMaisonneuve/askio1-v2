@@ -1,5 +1,6 @@
-# VISION — Askio1 v2 × Robot 3D Imprimable
+# VISION — Askio1 v2 × Robot
 *Dernière mise à jour : 2026-04-27*
+*Direction : Yoan Maisonneuve (visionnaire) · Exécution : Askio1 (CEO autonome)*
 
 ---
 
@@ -9,7 +10,8 @@
 > Il doit juste savoir **quoi déléguer à qui**.
 
 Le laptop planifie. Claude Code code. Les modèles forts raisonnent.  
-Le robot apprend dans la simulation avant de toucher le monde réel.
+Le robot apprend dans la simulation avant de toucher le monde réel.  
+Les morphologies évoluent en parallèle — on itère, on ne choisit pas une seule voie.
 
 ---
 
@@ -24,170 +26,180 @@ Le robot apprend dans la simulation avant de toucher le monde réel.
 │   ├── Exécution légère : Qwen 2.5 7B via Ollama             │
 │   ├── Recherche web : WebSearchAgent (DuckDuckGo)           │
 │   ├── Mémoire : MEA (TF-IDF, decay, consolidation)         │
-│   └── Délégation code → Claude Code (CLI subprocess)       │
+│   └── Délégation code → ClaudeCodeAgent (Phase 8)          │
 └──────────────────────────┬──────────────────────────────────┘
-                           │ délègue
-┌──────────────────────────▼──────────────────────────────────┐
-│  COUCHE 2 — EXÉCUTANTS SPÉCIALISÉS                          │
-│                                                             │
-│  Claude Code (claude --code)                                │
-│   ├── Génération firmware robot (MicroPython, C++ Arduino) │
-│   ├── Contrôleurs de locomotion (Python, ROS2)             │
-│   ├── Scripts simulation Gazebo / Isaac Sim                │
-│   └── Tests unitaires + validation                         │
-│                                                             │
-│  Claude API (Opus)                                          │
-│   ├── Conception architecture mécanique                    │
-│   ├── Raisonnement sur les compromis techniques            │
-│   └── Revue critique des résultats simulation              │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ teste
-┌──────────────────────────▼──────────────────────────────────┐
+                           │ délègue selon type
+              ┌────────────┴──────────────┐
+              ▼                           ▼
+┌─────────────────────┐    ┌──────────────────────────────────┐
+│  Claude Code CLI    │    │  Claude API (Opus)               │
+│  CODE_TASK → code  │    │  Raisonnement, architecture,     │
+│  réel livré        │    │  critique, décisions bloquantes  │
+└─────────────────────┘    └──────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────────────────┐
 │  COUCHE 3 — ENVIRONNEMENTS DE TEST                          │
 │                                                             │
-│  Gazebo (ROS2)          ← commence ici (CPU, accessible)   │
-│  Isaac Sim (NVIDIA)     ← quand la tour GPU est prête       │
-│  Monde réel             ← après validation simulation       │
+│  Gazebo (ROS2)     ← commence ici (CPU, accessible)        │
+│  Isaac Sim         ← quand la tour GPU est prête            │
+│  Monde réel        ← après validation simulation            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
+## Roadmap morphologie robot — itération parallèle
+
+> Pas une seule voie. Plusieurs prototypes en simulation en parallèle.  
+> Le hardware suit le meilleur candidat simulation.
+
+```
+PROTO-1 : Tripode (3 pattes)
+  ├── Stabilité passive garantie (triangle)
+  ├── 9 DOF (3 par patte)
+  ├── Idéal pour valider : firmware, IMU, boucle sim→réel
+  └── Timeline : premier dans Gazebo
+
+PROTO-2 : Quadrupède (4 pattes)
+  ├── Inspiré SpotMicro (designs open-source abondants)
+  ├── 12 DOF, gait naturel
+  ├── Développé en parallèle dans Gazebo
+  └── Candidat principal pour premier hardware
+
+PROTO-3 : Appendice / Queue
+  ├── 5e membre : support d'appui OU outil (pince, capteur)
+  ├── S'ajoute sur PROTO-2 ou PROTO-1
+  ├── Ouvre la voie à la manipulation
+  └── Testé en simulation avant intégration hardware
+
+PROTO-4 : Bipède sur roues
+  ├── 2 pattes avec roues à la base
+  ├── Peut rouler (rapide) ou marcher (terrain difficile)
+  ├── Objectif long terme — nécessite RL avancé
+  └── Commence en simulation dès que PROTO-2 est stable
+```
+
+**Décision d'exécution** : PROTO-1 et PROTO-2 en simulation simultanément.  
+PROTO-3 et PROTO-4 démarrent en simulation dès que PROTO-2 marche.  
+Hardware = meilleur candidat sim après validation 2 semaines.
+
+---
+
 ## Infrastructure — évolution
 
-| Phase | Setup | Usage |
-|-------|-------|-------|
-| **Maintenant** | Laptop + API Anthropic | Orchestration, planification, MEA |
-| **Court terme** | + Ollama local (Qwen 2.5 7B) | Tâches légères, consolidation, search |
-| **Tour GPU** | RTX 4090 ou H100 PCIe | Modèles 70B+, entraînement RL, Isaac Sim |
-| **Si scale** | RunPod H100 SXM (~2.50$/h) | Bursts d'entraînement, pas de commit long terme |
+| Phase | Setup | Modèles locaux |
+|-------|-------|----------------|
+| **Maintenant** | Laptop + Ollama (Qwen 2.5 7B) | 7B — tâches légères |
+| **Tour GPU** | RTX 4090 (24 GB) | Qwen 2.5 72B Q4, Isaac Sim |
+| **Si burst** | RunPod H100 SXM (~2.50$/h) | Entraînement RL, pas de commit |
 
-**Tour GPU — recommandations :**
-- GPU : RTX 4090 (24 GB VRAM) → modèles jusqu'à 70B quantizés, Isaac Sim
-- RAM : 64 GB minimum (simulation + modèle simultanés)
-- Stockage : NVMe 2 TB (checkpoints, datasets simulation)
-- OS : Ubuntu 22.04 (ROS2 Humble natif)
+**Tour GPU** : RTX 4090 recommandé (24 GB VRAM, ~1800 CAD).  
+Qwen 2.5 72B Q4_K_M tourne en ~20 GB. Isaac Sim parallèle possible.  
+Pas urgent — on continue avec API Anthropic en attendant.
 
 ---
 
-## Roadmap robot — 5 phases
+## Roadmap logicielle — phases
 
-### Phase R1 : Conception mécanique (6-8 semaines)
-**Objectif** : un design 3D imprimable validé sur papier
+### ✅ Phase 1-6 : Fondations (terminé)
+MEA, boucle cognitive, TF-IDF, cross-session, évaluation, API FastAPI.
 
-- Choix de morphologie : **quadrupède** (recommandé — stabilité passive, plus facile que bipède)
-  - Alternative : wheeled bot pour commencer, legs après
-- Contraintes : PLA/PETG, servos standard (MG996R ou STS3215), < 1.5 kg total
-- DOF cible : 12 DOF (3 par patte) pour quadrupède, ou 6 DOF pour bras robot
-- Outil : FreeCAD (paramétrique, open source) ou OpenSCAD
-- Livrable : fichiers STL + BOM (Bill of Materials)
+### ✅ Phase 7 : Autonomie continue (terminé)
+Heartbeat Ollama, WebSearchAgent, run_continuous.py, tasks.json.
 
-**Tâches askio1 :**
-```
-[ ] Rechercher designs open-source existants (OpenDog, SpotMicro, Petoi)
-[ ] Analyser compromis morphologie (bipède vs quadrupède vs hexapode)
-[ ] Générer spécifications mécaniques complètes
-[ ] Claude Code → script FreeCAD paramétrique
-```
+### 🔄 Phase 8 : Claude Code dans la boucle (en cours)
+Executor détecte `CODE_TASK:` → délègue à ClaudeCodeAgent → livraison réelle.  
+Artifacts sauvegardés dans `data/artifacts/` + MEA.
 
-### Phase R2 : Stack électronique + firmware (4-6 semaines)
-**Objectif** : microcontrôleur qui pilote les servos
+### Phase 9 : Stack simulation Gazebo
+URDF/Xacro générateur automatique depuis spécifications MEA.  
+Launch files ROS2. CPG controller. Métriques automatiques.
 
-- MCU : **Raspberry Pi 5** (4 GB) + coprocesseur RP2040 pour temps réel
-  - Alternative légère : ESP32-S3 si budget serré
-- IMU : ICM-42688-P (6-axis, haute précision)
-- Communication : USB-C + WiFi pour debugging, BLE pour téléopération
-- Batterie : LiPo 3S 2200 mAh, BMS intégré
-- Livrable : schéma électrique + firmware de base (contrôle servo, lecture IMU)
+### Phase 10 : Boucle sim→design
+Quand simulation échoue → entrée MEA `sim_failure` avec contexte.  
+Le planificateur utilise ces entrées pour corriger le design.  
+Ferme la boucle : MEA ↔ CAD ↔ Simulation ↔ MEA.
 
-**Tâches Claude Code :**
-```
-[ ] Firmware servo controller (MicroPython ou C++ selon MCU choisi)
-[ ] Driver IMU + kalman filter pour orientation
-[ ] Interface ROS2 ↔ firmware (rosserial ou micro-ROS)
-```
+### Phase 11 : Isaac Sim + RL (tour GPU)
+Isaac Lab, PPO/SAC, 1000 instances parallèles.  
+Export politique ONNX → déploiement firmware RPi5.
 
-### Phase R3 : Simulation Gazebo (8-10 semaines)
-**Objectif** : robot qui marche dans Gazebo, ROS2 Humble
-
-- URDF/Xacro du robot généré depuis le design CAD
-- Plugin Gazebo pour les servos et l'IMU
-- Contrôleur de base : CPG (Central Pattern Generator) pour gait
-- Métriques : distance parcourue, stabilité, consommation énergétique simulée
-- Livrable : robot qui marche en ligne droite de façon stable
-
-**Tâches Claude Code :**
-```
-[ ] Générateur URDF depuis spécifications mécaniques
-[ ] World Gazebo + launch files ROS2
-[ ] CPG controller Python (ros2_control)
-[ ] Scripts de métriques et visualisation
-```
-
-### Phase R4 : Isaac Sim + apprentissage (quand tour GPU prête)
-**Objectif** : politique de locomotion par RL, meilleure que CPG
-
-- Isaac Sim : physique GPU-accélérée, 1000+ instances parallèles
-- Framework RL : Isaac Lab (successeur d'OmniIsaacGymEnvs)
-- Algo : PPO ou SAC, reward = vitesse forward + stabilité - énergie
-- Transfer learning : sim-to-real avec domain randomization
-- Livrable : politique RL exportée (ONNX) qui surpasse CPG
-
-### Phase R5 : Prototype réel
-**Objectif** : le robot imprimé marche dans le monde réel
-
-- Impression : 40-60h total PLA, remplissage 30%, 0.2mm
-- Assemblage : 2-3 jours
-- Flashing firmware + déploiement politique ONNX sur RPi5
-- Tests : sol dur, légère pente, obstacles simples
-- Livrable : vidéo du robot qui marche
+### Phase 12 : Hardware PROTO-1 / PROTO-2
+Impression, assemblage, tests réels.
 
 ---
 
-## Intégration Claude Code dans askio1
+## Gestion des artifacts
 
-```python
-# À ajouter dans askio1/agents/executor.py (Phase 8)
-# Quand le plan contient une tâche de code substantielle,
-# déléguer à Claude Code via subprocess
-
-import subprocess
-
-def delegate_to_claude_code(task_description: str, workspace: str) -> str:
-    """Lance Claude Code en mode non-interactif sur une tâche de code."""
-    result = subprocess.run(
-        ["claude", "--print", task_description],
-        capture_output=True, text=True,
-        cwd=workspace, timeout=300
-    )
-    return result.stdout.strip()
+```
+data/
+├── artifacts/
+│   ├── cad/          ← fichiers FreeCAD, STL, STEP
+│   ├── firmware/     ← code C++, MicroPython, ROS2 packages
+│   ├── simulation/   ← URDF, worlds Gazebo, launch files
+│   ├── policies/     ← modèles RL entraînés (.onnx, .pt)
+│   └── reports/      ← rapports de simulation, métriques
+├── memory/           ← MEA
+└── logs/             ← logs continus
 ```
 
-Routing : si le plan contient `CODE_TASK:`, l'Executor délègue à Claude Code.  
-Le résultat revient dans la MEA comme entrée de type `code_artifact`.
+Chaque artifact : `{date}_{type}_{description}/` avec `README.md` auto-généré.  
+Index dans MEA comme entrée de type `code_artifact`.  
+Référencé dans session_resume.json pour cold start.
 
 ---
 
-## Prochaines actions immédiates
+## Boucle feedback sim→design
 
-1. **Installer Ollama** sur le laptop → `ollama pull qwen2.5:7b`
-2. **Lancer `run_continuous.py`** — il va consommer les tâches robot dans `tasks.json`
-3. **Phase 8** — intégration Claude Code dans l'Executor (délégation CODE_TASK)
-4. **Choisir la morphologie robot** — décision bloquante pour toute la suite
-5. **Commander les composants** — servos, MCU, IMU, batterie (estimé 150-300 CAD)
+```
+Simulation échoue (robot tombe, instabilité, collision)
+         ↓
+Reviewer extrait métriques d'échec
+         ↓
+MEA ← entrée sim_failure {proto, cause, métriques}
+         ↓
+Planificateur (Opus) lit sim_failure + design actuel
+         ↓
+Génère correction : ajuster DOF / masse / longueur membre
+         ↓
+CODE_TASK → Claude Code régénère URDF + STL paramétrique
+         ↓
+Relance simulation → métriques → MEA
+         ↓
+(boucle jusqu'à stabilité)
+```
 
 ---
 
-## Décisions ouvertes
+## Budget estimé
 
-| Question | Options | Décision |
-|----------|---------|----------|
-| Morphologie robot | Quadrupède / Bipède / Wheeled | **À décider** |
-| MCU principal | RPi 5 / ESP32-S3 / STM32 | **RPi 5 recommandé** |
-| Simulation départ | Gazebo / Isaac Sim | **Gazebo d'abord** |
-| GPU tour | RTX 4090 / H100 PCIe | **RTX 4090 recommandé** |
-| Modèle local 70B | Llama 3.3 70B / Qwen 2.5 72B | **Qwen 2.5 72B recommandé** |
+| Poste | Estimation |
+|-------|-----------|
+| Servos × 12 (MG996R ou STS3215) | 80-150 CAD |
+| MCU (RPi 5 4GB) | 80 CAD |
+| IMU (ICM-42688) + divers | 30 CAD |
+| Batterie LiPo 3S + BMS + chargeur | 60 CAD |
+| Filament PLA (2 kg) | 40 CAD |
+| Quincaillerie (vis, inserts) | 20 CAD |
+| **Total hardware proto** | **~330 CAD** |
+| API Anthropic (Opus, phases 8-12) | ~50-100 CAD/mois |
+| RunPod bursts (entraînement RL) | ~20-50 CAD/session |
 
 ---
 
-*Ce document est vivant — askio1 le met à jour via la MEA à chaque cycle pertinent.*
+## Décisions actives
+
+| Question | Décision |
+|----------|----------|
+| Morphologie départ | PROTO-1 (tripode) + PROTO-2 (quad) en parallèle simulation |
+| Morphologie cible | PROTO-4 (bipède roues) — long terme |
+| Appendice/queue | PROTO-3 ajouté sur PROTO-2 après validation |
+| MCU | Raspberry Pi 5 (4 GB) + RP2040 temps réel |
+| Simulation départ | Gazebo (ROS2 Humble) |
+| GPU | RTX 4090 — pas urgent, en tête |
+| Organisation | Yoan = visionnaire/consultant · Askio1 = CEO autonome |
+
+---
+
+*Ce document est vivant — askio1 le met à jour à chaque décision majeure.*
