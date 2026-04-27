@@ -1,7 +1,7 @@
 [
-  "Recherche web : quels servo-moteurs légers (< 50g, couple > 2 kg.cm) pour un robot bipède 3D imprimable ?",
-  "Définir l'architecture mécanique minimale d'un robot mobile imprimable en PLA : nombre de DOF, articulations critiques",
-  "Identifier les composants électroniques nécessaires : microcontrôleur (ESP32 vs Raspberry Pi Pico), IMU, batterie LiPo",
   "Recherche web : frameworks open-source de locomotion pour robots bipèdes (ROS2, MuJoCo, PyBullet) — avantages/inconvénients",
-  "Concevoir la feuille de route technique du robot : phases impression → assemblage → firmware → apprentissage moteur"
+  "Concevoir la feuille de route technique du robot : phases impression → assemblage → firmware → apprentissage moteur",
+  "CODE_TASK: [firmware] Écrire un driver servo MG996R en MicroPython pour RP2040 — contrôle position PWM, rampe vitesse, limites angulaires configurables",
+  "CODE_TASK: [simulation] Générer le fichier URDF de base pour PROTO-1 tripode 9-DOF — 3 pattes identiques, corps central cylindrique, joints rotatifs",
+  "CODE_TASK: [cad] Script Python FreeCAD paramétrique pour une patte de robot tripode — longueur fémur/tibia configurables, trous d'axe servo, supports d'impression"
 ]
