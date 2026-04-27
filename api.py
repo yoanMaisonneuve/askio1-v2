@@ -127,7 +127,7 @@ class AppState:
         self.store    = MemoryStore(self.config)
         self.observer = Observer(self.llm, self.store)
         self.thinker  = Thinker(self.llm)
-        self.executor = Executor(self.llm)
+        self.executor = Executor(self.llm, self.store)
         self.reviewer = Reviewer(self.llm)
         self.mem_agent= MemoryAgent(self.llm, self.store)
         self.cloop    = CognitiveLoop(self.store, self.llm)
