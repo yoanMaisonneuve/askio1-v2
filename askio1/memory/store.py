@@ -105,10 +105,12 @@ class MemoryStore:
 
     # ─── Retrieval intelligent ────────────────────────────────────────────
 
-    def retrieve_relevant(self, query: str, max_results: int = 5) -> str:
+    def retrieve_relevant(self, query: str, max_results: int = 5,
+                          max_chars: int = 1200) -> str:
         """
         Classe les entrées par score_final = importance_courante × pertinence_mots_clés.
         Applique le decay au chargement → les vieilles entrées descendent seules.
+        Respecte un budget max_chars pour ne pas saturer le prompt du Penseur.
         """
         now = time.time()
         query_words = set(query.lower().split())
@@ -139,15 +141,21 @@ class MemoryStore:
             return "(aucune mémoire pertinente)"
 
         lines = []
+        total_chars = 0
         for mea in top:
             c = mea.content
             type_  = c.get("type",    "?") if isinstance(c, dict) else "?"
             scope_ = c.get("scope",   "?") if isinstance(c, dict) else "?"
-            summ_  = c.get("summary", str(c)[:80]) if isinstance(c, dict) else str(c)[:80]
+            summ_  = c.get("summary", str(c)[:100]) if isinstance(c, dict) else str(c)[:100]
             imp    = mea.current_importance
-            lines.append(f"[{type_}/{scope_}|imp={imp:.2f}] {summ_}")
+            line   = f"[{type_}/{scope_}|imp={imp:.2f}] {summ_}"
+            if total_chars + len(line) > max_chars:
+                logger.debug(f"[MemoryStore] budget chars atteint ({total_chars}/{max_chars}), troncature")
+                break
+            lines.append(line)
+            total_chars += len(line) + 1
 
-        logger.debug(f"[MemoryStore] retrieve '{query[:40]}' → {len(top)} résultats")
+        logger.debug(f"[MemoryStore] retrieve '{query[:40]}' → {len(lines)} résultats ({total_chars} chars)")
         return "\n".join(lines)
 
     # ─── MissionState (inchangé) ──────────────────────────────────────────
@@ -163,6 +171,95 @@ class MemoryStore:
             return None
         data = json.loads(path.read_text(encoding="utf-8"))
         return MissionState(**data)
+
+    # ─── Déduplication + Pruning ──────────────────────────────────────────
+
+    def deduplicate(self, similarity_threshold: int = 60) -> int:
+        """
+        Supprime les entrées dont le résumé est quasi-identique.
+        Compare les N premiers caractères du summary pour détecter les doublons.
+        Conserve l'entrée la plus récente (updated_at le plus élevé).
+        Retourne le nombre d'entrées supprimées.
+        """
+        now = time.time()
+        entries: List[tuple] = []   # (path, mea)
+
+        for p in self.base_dir.glob("*.json"):
+            mea = self._load_mea(p)
+            if mea:
+                entries.append((p, mea))
+
+        seen: dict = {}   # summary_key → (path, mea)
+        to_delete: List[Path] = []
+
+        for path, mea in entries:
+            c = mea.content if isinstance(mea.content, dict) else {}
+            summary_key = c.get("summary", "")[:similarity_threshold].lower().strip()
+            if not summary_key:
+                continue
+
+            if summary_key in seen:
+                existing_path, existing_mea = seen[summary_key]
+                # Garde le plus récent, supprime l'autre
+                if mea.updated_at >= existing_mea.updated_at:
+                    to_delete.append(existing_path)
+                    seen[summary_key] = (path, mea)
+                else:
+                    to_delete.append(path)
+            else:
+                seen[summary_key] = (path, mea)
+
+        for p in to_delete:
+            try:
+                p.unlink()
+            except Exception as e:
+                logger.debug(f"[MemoryStore] dedup delete failed {p.name}: {e}")
+
+        if to_delete:
+            logger.info(f"[MemoryStore] déduplication : {len(to_delete)} doublon(s) supprimé(s)")
+        return len(to_delete)
+
+    def prune(self, max_entries: int = 200, min_importance: float = 0.05) -> int:
+        """
+        Supprime les entrées à faible importance quand le store dépasse max_entries.
+        Ne touche jamais aux entrées de type 'invariant' ou 'critical'.
+        Retourne le nombre d'entrées supprimées.
+        """
+        now = time.time()
+        entries = []
+
+        for p in self.base_dir.glob("*.json"):
+            mea = self._load_mea(p)
+            if not mea:
+                continue
+            mea.update_importance(now)
+            c = mea.content if isinstance(mea.content, dict) else {}
+            entry_type = c.get("type", "fact")
+            importance_level = c.get("importance", "medium")
+            # Protège les invariants et les entrées critiques
+            protected = entry_type == "invariant" or importance_level == "critical"
+            entries.append((p, mea, protected))
+
+        if len(entries) <= max_entries:
+            return 0
+
+        # Trie par importance croissante (les moins importantes d'abord)
+        pruneable = [(p, mea) for p, mea, protected in entries if not protected]
+        pruneable.sort(key=lambda x: x[1].current_importance)
+
+        n_to_delete = len(entries) - max_entries
+        deleted = 0
+        for path, mea in pruneable[:n_to_delete]:
+            if mea.current_importance < min_importance:
+                try:
+                    path.unlink()
+                    deleted += 1
+                except Exception as e:
+                    logger.debug(f"[MemoryStore] prune delete failed {path.name}: {e}")
+
+        if deleted:
+            logger.info(f"[MemoryStore] pruning : {deleted} entrée(s) sous-seuil supprimée(s)")
+        return deleted
 
     # ─── Stats MEA ────────────────────────────────────────────────────────
 
