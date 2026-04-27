@@ -46,6 +46,16 @@ class MemoryAgent:
             logger.debug(f"[MemoryAgent] entry saved: {entry.id} [{entry.type}]")
 
     def reflect(self, mission_id: str):
+        # Déduplication avant réflexion
+        dupes = self.store.deduplicate()
+        if dupes:
+            logger.info(f"[MemoryAgent] {dupes} doublon(s) supprimé(s) avant réflexion")
+
+        # Pruning si nécessaire (seuil : 200 entrées)
+        pruned = self.store.prune(max_entries=200)
+        if pruned:
+            logger.info(f"[MemoryAgent] {pruned} entrée(s) écrêtées par pruning")
+
         entries = self.store.list_entries()
         if not entries:
             return
