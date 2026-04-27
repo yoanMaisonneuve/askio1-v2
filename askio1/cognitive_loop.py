@@ -111,11 +111,23 @@ class CognitiveLoop:
             return ""
 
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+            data       = json.loads(path.read_text(encoding="utf-8"))
             session_id = data.get("session_id", "?")
             summary    = data.get("summary", "")
             rules      = data.get("top_rules", [])
             ts         = data.get("timestamp", "")
+            perf       = data.get("perf", {})
+            failure_rate = perf.get("failure_rate", 0.0)
+
+            # Filtre : ne pas injecter un résumé de session catastrophique
+            if failure_rate > 0.6:
+                logger.info(
+                    f"[CognitiveLoop] cold start — résumé session {session_id} ignoré "
+                    f"(failure_rate={failure_rate:.0%} > 60%)"
+                )
+                self._cold_context = ""
+                return ""
+
             logger.info(f"[CognitiveLoop] cold start — résumé session {session_id} ({ts})")
             ctx = (
                 f"[MÉMOIRE CROSS-SESSION — session {session_id}]\n"
