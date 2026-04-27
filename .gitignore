@@ -1,0 +1,8 @@
+.env
+data/memory/long_term/*.json
+data/logs/*.log
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.db

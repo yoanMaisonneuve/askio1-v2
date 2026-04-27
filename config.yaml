@@ -1,0 +1,23 @@
+llm:
+  provider: anthropic
+  model: claude-haiku-4-5-20251001
+  max_tokens: 4096
+  temperature: 0.3
+
+memory:
+  short_term_max: 50
+  long_term_dir: data/memory/long_term
+  reflection_interval: 10   # cycles entre chaque réflexion MEA
+
+agents:
+  observer_model: claude-haiku-4-5-20251001
+  thinker_model: claude-haiku-4-5-20251001
+  executor_model: claude-haiku-4-5-20251001
+  reviewer_model: claude-haiku-4-5-20251001
+  memory_model: claude-haiku-4-5-20251001
+
+cognitive_triggers:
+  saturation_token_threshold: 100000
+  saturation_depth_threshold: 20
+  reflection_on_failure: true
+  reflection_on_phase_change: true
