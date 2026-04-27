@@ -1,20 +1,20 @@
 """
-store.py — MemoryStore v2 (Phase 2)
+store.py — MemoryStore v3 (Phase 6a)
 =====================================
 Backend branché sur mea_core.py.
 
-Changements vs v1 :
-  - Sauvegarde via mea_core.MemoryEntry (scoring, decay, traçabilité, SHA256)
-  - retrieve_relevant() classé par importance * pertinence_mots_clés
-  - Decay appliqué au chargement → les entrées vieilles descendent naturellement
-  - Backward compat : les agents continuent de passer des schemas.MemoryEntry simples
-    → bridge automatique via _bridge_to_mea()
+Changements vs v2 :
+  - retrieve_relevant() passe de keyword-matching à TF-IDF (scikit-learn)
+    → meilleure cohérence sémantique, moins de bruit sur requêtes multi-mots
+  - Score final : importance_decay * 0.5 + tfidf_cosine * 0.5
+  - Index TF-IDF reconstruit à la volée (lazy, invalidé après save_entry)
+  - Fallback keyword si sklearn absent
 
 Architecture :
   schemas.MemoryEntry (agent)
       ↓ _bridge_to_mea()
   mea_core.MemoryEntry (stocké sur disque, avec scoring + decay)
-      ↓ retrieve_relevant() → classement par score_final
+      ↓ retrieve_relevant() → TF-IDF cosine + decay → classement
   str (contexte injecté dans le Penseur)
 """
 
@@ -24,6 +24,14 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
+
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+    import numpy as np
+    _TFIDF_AVAILABLE = True
+except ImportError:
+    _TFIDF_AVAILABLE = False
 
 from .schemas import MemoryEntry as SchemaEntry, MissionState
 from .mea_core import (
@@ -57,15 +65,17 @@ HALFLIFE_MAP = {
 
 class MemoryStore:
     """
-    Store MEA v2 — persistance JSON + scoring multi-critères + decay.
+    Store MEA v3 — persistance JSON + scoring multi-critères + decay + TF-IDF retrieval.
     """
 
     def __init__(self, config: dict):
         base = config.get("memory", {}).get("long_term_dir", "data/memory/long_term")
         self.base_dir = Path(base)
         self.base_dir.mkdir(parents=True, exist_ok=True)
-        self.scorer   = ImportanceScorer(scoring_mode="weighted")
-        logger.info(f"[MemoryStore v2] init → {self.base_dir}")
+        self.scorer      = ImportanceScorer(scoring_mode="weighted")
+        self._tfidf_index: Optional[dict] = None   # cache invalidé après write
+        mode = "TF-IDF" if _TFIDF_AVAILABLE else "keyword-fallback"
+        logger.info(f"[MemoryStore v3] init → {self.base_dir} [{mode}]")
 
     # ─── Écriture ─────────────────────────────────────────────────────────
 
@@ -79,6 +89,7 @@ class MemoryStore:
         try:
             with path.open("w", encoding="utf-8") as f:
                 json.dump(mea.to_dict(), f, ensure_ascii=False, indent=2)
+            self._tfidf_index = None   # invalide le cache TF-IDF
             logger.debug(f"[MemoryStore] ✓ {mea.id} [{entry.type}/{entry.scope}] importance={mea.current_importance:.3f}")
         except Exception as e:
             logger.error(f"[MemoryStore] ✗ save {mea.id}: {e}")
@@ -108,55 +119,97 @@ class MemoryStore:
     def retrieve_relevant(self, query: str, max_results: int = 5,
                           max_chars: int = 1200) -> str:
         """
-        Classe les entrées par score_final = importance_courante × pertinence_mots_clés.
-        Applique le decay au chargement → les vieilles entrées descendent seules.
-        Respecte un budget max_chars pour ne pas saturer le prompt du Penseur.
+        Classe les entrées par score_final = importance_decay * 0.5 + tfidf_cosine * 0.5.
+        Utilise TF-IDF (scikit-learn) si disponible, sinon keyword-matching en fallback.
+        Index TF-IDF mis en cache et invalidé après chaque save_entry.
         """
         now = time.time()
-        query_words = set(query.lower().split())
-        scored: List[Tuple[float, MeaEntry]] = []
 
+        # Charge toutes les entrées avec decay à jour
+        all_entries: List[Tuple[Path, MeaEntry]] = []
         for p in self.base_dir.glob("*.json"):
             mea = self._load_mea(p)
             if not mea:
                 continue
-
-            # Decay à jour
             mea.update_importance(now)
+            all_entries.append((p, mea))
 
-            # Pertinence mots-clés
-            content_str = json.dumps(mea.content, ensure_ascii=False, default=str).lower()
-            kw_hits = sum(1 for w in query_words if w in content_str)
-            kw_score = min(1.0, kw_hits / max(len(query_words), 1))
+        if not all_entries:
+            return "(aucune mémoire pertinente)"
 
-            # Score final : importance vivante × pertinence
-            final = mea.current_importance * 0.6 + kw_score * 0.4
-            if final > 0.01:
-                scored.append((final, mea))
+        if _TFIDF_AVAILABLE:
+            scored = self._tfidf_score(query, all_entries)
+        else:
+            scored = self._keyword_score(query, all_entries)
 
         scored.sort(reverse=True, key=lambda x: x[0])
         top = [mea for _, mea in scored[:max_results]]
 
-        if not top:
-            return "(aucune mémoire pertinente)"
-
         lines = []
         total_chars = 0
         for mea in top:
-            c = mea.content
+            c      = mea.content
             type_  = c.get("type",    "?") if isinstance(c, dict) else "?"
             scope_ = c.get("scope",   "?") if isinstance(c, dict) else "?"
             summ_  = c.get("summary", str(c)[:100]) if isinstance(c, dict) else str(c)[:100]
             imp    = mea.current_importance
             line   = f"[{type_}/{scope_}|imp={imp:.2f}] {summ_}"
             if total_chars + len(line) > max_chars:
-                logger.debug(f"[MemoryStore] budget chars atteint ({total_chars}/{max_chars}), troncature")
+                logger.debug(f"[MemoryStore] budget chars atteint ({total_chars}/{max_chars})")
                 break
             lines.append(line)
             total_chars += len(line) + 1
 
-        logger.debug(f"[MemoryStore] retrieve '{query[:40]}' → {len(lines)} résultats ({total_chars} chars)")
-        return "\n".join(lines)
+        method = "tfidf" if _TFIDF_AVAILABLE else "keyword"
+        logger.debug(f"[MemoryStore] retrieve [{method}] '{query[:40]}' → {len(lines)} résultats ({total_chars} chars)")
+        return "\n".join(lines) if lines else "(aucune mémoire pertinente)"
+
+    def _tfidf_score(self, query: str,
+                     entries: List[Tuple[Path, MeaEntry]]) -> List[Tuple[float, MeaEntry]]:
+        """Scoring TF-IDF : reconstruit l'index si le cache est invalide."""
+        # Corpus : summary + details + type pour chaque entrée
+        corpus = []
+        for _, mea in entries:
+            c = mea.content if isinstance(mea.content, dict) else {}
+            text = " ".join(filter(None, [
+                c.get("type", ""), c.get("scope", ""),
+                c.get("summary", ""), c.get("details", "")[:200],
+            ]))
+            corpus.append(text or "vide")
+
+        try:
+            vec = TfidfVectorizer(
+                analyzer="word", ngram_range=(1, 2),
+                min_df=1, sublinear_tf=True,
+                strip_accents="unicode", lowercase=True,
+            )
+            tfidf_matrix = vec.fit_transform(corpus)
+            query_vec    = vec.transform([query])
+            cosine_scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
+        except Exception as e:
+            logger.warning(f"[MemoryStore] TF-IDF error ({e}), fallback keyword")
+            return self._keyword_score(query, entries)
+
+        scored = []
+        for i, (_, mea) in enumerate(entries):
+            final = mea.current_importance * 0.5 + float(cosine_scores[i]) * 0.5
+            if final > 0.01:
+                scored.append((final, mea))
+        return scored
+
+    def _keyword_score(self, query: str,
+                       entries: List[Tuple[Path, MeaEntry]]) -> List[Tuple[float, MeaEntry]]:
+        """Fallback keyword matching (v2 legacy)."""
+        query_words = set(query.lower().split())
+        scored = []
+        for _, mea in entries:
+            content_str = json.dumps(mea.content, ensure_ascii=False, default=str).lower()
+            kw_hits  = sum(1 for w in query_words if w in content_str)
+            kw_score = min(1.0, kw_hits / max(len(query_words), 1))
+            final    = mea.current_importance * 0.6 + kw_score * 0.4
+            if final > 0.01:
+                scored.append((final, mea))
+        return scored
 
     # ─── MissionState (inchangé) ──────────────────────────────────────────
 
