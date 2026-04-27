@@ -1,0 +1,242 @@
+name: Askio1 CI — Simulation & Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Lance une simulation complète chaque nuit à 3h UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:  # Déclenchable manuellement depuis GitHub
+
+jobs:
+  # ── Tests unitaires + imports ────────────────────────────────────────────────
+  test-imports:
+    name: Vérification imports et configs
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Installer les dépendances
+        run: |
+          pip install python-dotenv pyyaml anthropic scikit-learn ddgs pybullet
+
+      - name: Vérifier les imports
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, '.')
+          from askio1.simulation.urdf_generator import URDFGenerator
+          from askio1.simulation.cpg_controller import CPGController
+          from askio1.simulation.cpg_node import run_standalone
+          from askio1.simulation.metrics import MetricsTracker
+          from askio1.simulation.pybullet_sim import PyBulletSim
+          print('✓ Tous les imports OK')
+          "
+
+      - name: Vérifier config.yaml
+        run: |
+          python -c "
+          import yaml
+          cfg = yaml.safe_load(open('config.yaml'))
+          assert 'llm' in cfg
+          assert cfg['llm']['backend'] == 'auto'
+          assert 'ollama_model' in cfg['llm']
+          print('✓ config.yaml valide')
+          "
+
+  # ── Génération URDF ──────────────────────────────────────────────────────────
+  generate-urdf:
+    name: Génération URDF
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.10' }
+
+      - run: pip install python-dotenv pyyaml
+
+      - name: Générer URDF proto1 + proto2
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, '.')
+          from askio1.simulation.urdf_generator import URDFGenerator
+          gen = URDFGenerator()
+          u1 = gen.generate('proto1_tripod')
+          u2 = gen.generate('proto2_quad')
+          gen.save(u1, 'robot/proto1_tripod/urdf/proto1_tripod.urdf')
+          gen.save(u2, 'robot/proto2_quad/urdf/proto2_quad.urdf')
+          assert u1.count('<link name') == 11, f'Proto1: attendu 11 links, got {u1.count(\"<link name\")}'
+          assert u2.count('<link name') == 14, f'Proto2: attendu 14 links, got {u2.count(\"<link name\")}'
+          print(f'✓ URDF proto1: {len(u1)} chars, {u1.count(\"<link name\")} links')
+          print(f'✓ URDF proto2: {len(u2)} chars, {u2.count(\"<link name\")} links')
+          "
+
+      - name: Upload URDF artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: urdf-files
+          path: robot/*/urdf/*.urdf
+
+  # ── Simulation CPG ────────────────────────────────────────────────────────────
+  cpg-simulation:
+    name: Simulation CPG + Métriques
+    runs-on: ubuntu-22.04
+    needs: generate-urdf
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.10' }
+
+      - run: pip install python-dotenv pyyaml scikit-learn
+
+      - name: Générer trajectoires CPG
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, '.')
+          import os; os.makedirs('data/artifacts/simulation', exist_ok=True)
+          from askio1.simulation.cpg_controller import CPGController
+
+          gaits = [('tripod_wave', 3), ('tripod_static', 3), ('trot', 4), ('walk', 4)]
+          for gait, n_legs in gaits:
+              ctrl = CPGController(n_legs=n_legs, gait=gait, freq=1.0, dt=0.01)
+              traj = ctrl.run(5.0)
+              ctrl.save_csv(traj, f'data/artifacts/simulation/cpg_{gait}.csv')
+              print(f'✓ {gait}: {len(traj)} steps')
+          "
+
+      - name: Calculer métriques cinématiques
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, '.')
+          from askio1.simulation.metrics import analyze_cpg_csv
+          import json, os
+          os.makedirs('data/artifacts/report', exist_ok=True)
+          results = {}
+          for gait in ['tripod_wave', 'tripod_static']:
+              m = analyze_cpg_csv(f'data/artifacts/simulation/cpg_{gait}.csv', 'proto1', gait)
+              results[gait] = {'score': m.global_score, 'speed': m.forward_speed_ms, 'stability': m.stability_score}
+              print(f'{gait}: score={m.global_score} speed={m.forward_speed_ms}m/s stability={m.stability_score}')
+          # Écrit résumé pour le rapport
+          with open('data/artifacts/report/ci_metrics.json', 'w') as f:
+              json.dump(results, f, indent=2)
+          "
+
+      - name: Upload métriques
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulation-metrics
+          path: data/artifacts/report/
+
+  # ── Simulation PyBullet ───────────────────────────────────────────────────────
+  pybullet-physics:
+    name: Physique PyBullet PROTO-1
+    runs-on: ubuntu-22.04
+    needs: generate-urdf
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.10' }
+
+      - run: pip install python-dotenv pyyaml pybullet
+
+      - name: Générer URDF (rebuild pour ce job)
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, '.')
+          from askio1.simulation.urdf_generator import URDFGenerator
+          gen = URDFGenerator()
+          gen.save(gen.generate('proto1_tripod'), 'robot/proto1_tripod/urdf/proto1_tripod.urdf')
+          gen.save(gen.generate('proto2_quad'),   'robot/proto2_quad/urdf/proto2_quad.urdf')
+          "
+
+      - name: Simulation physique proto1 (5s)
+        run: |
+          python -c "
+          import sys, os; sys.path.insert(0, '.')
+          os.makedirs('data/artifacts/report', exist_ok=True)
+          from askio1.simulation.pybullet_sim import PyBulletSim
+          import json, dataclasses
+
+          sim = PyBulletSim('robot/proto1_tripod/urdf/proto1_tripod.urdf',
+                            proto='proto1_tripod', gait='tripod_wave', freq=1.0)
+          r = sim.run(duration=5.0)
+          print(r.summary())
+
+          # Sauvegarde pour le rapport
+          with open('data/artifacts/report/pybullet_proto1.json', 'w') as f:
+              json.dump(dataclasses.asdict(r), f, indent=2)
+
+          print(f'RTF: {r.real_time_factor}x')
+          print('✓ Simulation PyBullet OK')
+          "
+
+      - name: Upload résultats physique
+        uses: actions/upload-artifact@v4
+        with:
+          name: pybullet-results
+          path: data/artifacts/report/pybullet_*.json
+
+  # ── Rapport de synthèse ───────────────────────────────────────────────────────
+  daily-report:
+    name: Rapport quotidien CI
+    runs-on: ubuntu-22.04
+    needs: [cpg-simulation, pybullet-physics]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.10' }
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: data/artifacts/
+          merge-multiple: true
+
+      - name: Générer résumé CI
+        run: |
+          python -c "
+          from datetime import date
+          import json, os, glob
+
+          today = date.today().isoformat()
+          lines = [f'# CI Report — {today}', '']
+          lines += ['## Jobs CI', '']
+
+          # Métriques CPG
+          ci_m = 'data/artifacts/report/ci_metrics.json'
+          if os.path.exists(ci_m):
+              data = json.load(open(ci_m))
+              lines += ['### Métriques CPG (cinématique)']
+              for gait, m in data.items():
+                  lines.append(f'- **{gait}** : score={m[\"score\"]} speed={m[\"speed\"]}m/s stability={m[\"stability\"]}')
+              lines.append('')
+
+          # PyBullet
+          pb = 'data/artifacts/report/pybullet_proto1.json'
+          if os.path.exists(pb):
+              data = json.load(open(pb))
+              lines += ['### Simulation PyBullet (physique réelle)']
+              lines.append(f'- Proto: {data[\"proto\"]} / {data[\"gait\"]}')
+              lines.append(f'- Distance: {data[\"distance_m\"]}m  Speed: {data[\"forward_speed_ms\"]}m/s')
+              lines.append(f'- Stabilité: {data[\"stability_score\"]}  Falls: {data[\"falls\"]}')
+              lines.append(f'- Score: {data[\"global_score\"]}  RTF: {data[\"real_time_factor\"]}x')
+              lines.append('')
+
+          report = '\n'.join(lines)
+          os.makedirs('journal', exist_ok=True)
+          open(f'journal/ci_{today}.md', 'w').write(report)
+          print(report)
+          "
+
+      - name: Upload rapport CI
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-report
+          path: journal/ci_*.md
