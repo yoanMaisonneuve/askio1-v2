@@ -47,13 +47,16 @@ class WebSearchAgent:
         self.llm   = llm
         self.store = store
         try:
-            from duckduckgo_search import DDGS
+            try:
+                from ddgs import DDGS          # package renommé (>=7.x)
+            except ImportError:
+                from duckduckgo_search import DDGS  # ancien nom (fallback)
             self._ddgs = DDGS()
             self._available = True
             logger.info("[WebSearch] DuckDuckGo initialisé")
         except ImportError:
             self._available = False
-            logger.warning("[WebSearch] duckduckgo-search non installé — pip install duckduckgo-search")
+            logger.warning("[WebSearch] ddgs non installé — pip install ddgs")
 
     def search(self, query: str, max_results: int = MAX_RESULTS,
                save_to_memory: bool = True) -> dict:
