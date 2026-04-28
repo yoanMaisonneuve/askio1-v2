@@ -18,19 +18,19 @@ Write-Host "OK repertoire logs : $LogPath" -ForegroundColor Green
 
 # 2. Installe les dependances Python dans WSL
 Write-Host "`nInstallation des dependances Python dans WSL..." -ForegroundColor Yellow
-wsl -d Ubuntu-22.04 -- bash -c "cd '$WslProject' ; pip install python-dotenv pyyaml anthropic scikit-learn ddgs pybullet --break-system-packages -q"
+wsl -d Ubuntu-22.04 -- bash -c "cd '$WslProject' ; pip3 install python-dotenv pyyaml anthropic scikit-learn ddgs pybullet -q 2>/dev/null || pip3 install --user python-dotenv pyyaml anthropic scikit-learn ddgs pybullet -q"
 Write-Host "OK dependances installees" -ForegroundColor Green
 
 # 3. Test rapide — utilise chr() pour eviter les guillemets imbriques
 # chr(46)=.  chr(79)+chr(75)="OK"
 Write-Host "`nTest imports Python..." -ForegroundColor Yellow
 $PyTest = "import sys; sys.path.insert(0, chr(46)); from askio1.simulation.urdf_generator import URDFGenerator; print(chr(79)+chr(75))"
-wsl -d Ubuntu-22.04 -- bash -c "cd '$WslProject' ; python -c '$PyTest'"
+wsl -d Ubuntu-22.04 -- bash -c "cd '$WslProject' ; python3 -c '$PyTest'"
 
 # 4. Cree la tache planifiee Windows
 Write-Host "`nCreation tache planifiee '$TaskName'..." -ForegroundColor Yellow
 
-$BashCmd  = "cd '$WslProject' ; python run_continuous.py --interval 10 >> data/logs/daemon.log 2>&1"
+$BashCmd  = "cd '$WslProject' ; python3 run_continuous.py --interval 10 >> data/logs/daemon.log 2>&1"
 $WslArgs  = "-d Ubuntu-22.04 -- bash -c `"$BashCmd`""
 
 $Action = New-ScheduledTaskAction `
@@ -71,4 +71,4 @@ wsl -d Ubuntu-22.04 -- bash -c "curl -s --max-time 3 http://localhost:11434/api/
 Write-Host "`n=== Configuration terminee ===" -ForegroundColor Cyan
 Write-Host "Askio1 demarrera automatiquement a la prochaine session Windows." -ForegroundColor Green
 Write-Host "Pour le lancer maintenant, ouvre Ubuntu et colle :"
-Write-Host "  cd $WslProject ; python run_continuous.py --interval 10"
+Write-Host "  cd $WslProject ; python3 run_continuous.py --interval 10"
