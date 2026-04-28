@@ -1,24 +1,40 @@
-# setup_autostart.ps1 — Configure le démarrage automatique d'Askio1
-# Lance ce script une seule fois en PowerShell Admin pour tout configurer.
-# Ensuite Askio1 démarre tout seul à chaque allumage.
+# setup_autostart.ps1 — Configure le demarrage automatique d'Askio1
+# Compatible PowerShell 5.1 (Windows 10/11)
 #
 # Usage (PowerShell Admin) :
 #   Set-ExecutionPolicy Bypass -Scope Process -Force
 #   .\scripts\setup_autostart.ps1
 
 $ProjectPath = "C:\Users\Utilisateur\Documents\openClaude\askio1_v2"
-$TaskName    = "Askio1-Robot-Daemon"
 $LogPath     = "$ProjectPath\data\logs"
+$TaskName    = "Askio1-Robot-Daemon"
 
 Write-Host "=== Setup Askio1 Auto-Start ===" -ForegroundColor Cyan
 
-# 1. Crée le répertoire de logs si manquant
+# 1. Cree le repertoire de logs si manquant
 New-Item -ItemType Directory -Force -Path $LogPath | Out-Null
+Write-Host "OK repertoire logs : $LogPath" -ForegroundColor Green
 
-# 2. Configure le Task Scheduler Windows
-$Action  = New-ScheduledTaskAction `
+# 2. Installe les dependances Python dans WSL (appels separes, pas de &&)
+Write-Host "`nInstallation des dependances Python dans WSL..." -ForegroundColor Yellow
+
+wsl -d Ubuntu-22.04 -- bash -c "cd '/mnt/c/Users/Utilisateur/Documents/openClaude/askio1_v2' ; pip install python-dotenv pyyaml anthropic scikit-learn ddgs pybullet --break-system-packages -q"
+
+Write-Host "OK dependances installees" -ForegroundColor Green
+
+# 3. Test rapide
+Write-Host "`nTest imports Python..." -ForegroundColor Yellow
+wsl -d Ubuntu-22.04 -- bash -c "cd '/mnt/c/Users/Utilisateur/Documents/openClaude/askio1_v2' ; python -c 'import sys; sys.path.insert(0,\".\"); from askio1.simulation.urdf_generator import URDFGenerator; print(\"OK imports\")'"`
+
+# 4. Cree la tache planifiee Windows
+Write-Host "`nCreation tache planifiee '$TaskName'..." -ForegroundColor Yellow
+
+$WslArgs = "-d Ubuntu-22.04 -- bash -c `"cd '/mnt/c/Users/Utilisateur/Documents/openClaude/askio1_v2' ; python run_continuous.py --interval 10 >> data/logs/daemon.log 2>&1`""
+
+$Action = New-ScheduledTaskAction `
     -Execute "wsl.exe" `
-    -Argument "-d Ubuntu-22.04 bash -c `"cd /mnt/c/Users/Utilisateur/Documents/openClaude/askio1_v2 && python run_continuous.py --interval 10 >> data/logs/daemon.log 2>&1`""
+    -Argument $WslArgs `
+    -WorkingDirectory $ProjectPath
 
 $Trigger = New-ScheduledTaskTrigger -AtLogOn
 
@@ -33,29 +49,24 @@ $Principal = New-ScheduledTaskPrincipal `
     -LogonType Interactive `
     -RunLevel Highest
 
-# Supprime si déjà existant
+# Supprime si deja existant
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 
 Register-ScheduledTask `
     -TaskName $TaskName `
-    -Action   $Action `
-    -Trigger  $Trigger `
+    -Action $Action `
+    -Trigger $Trigger `
     -Settings $Settings `
     -Principal $Principal `
-    -Description "Lance le daemon Askio1 v2 (robot 3D) dans WSL Ubuntu au démarrage" | Out-Null
+    -Description "Lance Askio1 v2 robot daemon dans WSL Ubuntu au demarrage" | Out-Null
 
-Write-Host "✓ Tâche '$TaskName' créée dans le Task Scheduler" -ForegroundColor Green
+Write-Host "OK tache '$TaskName' creee" -ForegroundColor Green
 
-# 3. Installe les dépendances Python dans WSL si nécessaire
-Write-Host "`nInstallation des dépendances Python dans WSL..." -ForegroundColor Yellow
-wsl -d Ubuntu-22.04 bash -c "cd /mnt/c/Users/Utilisateur/Documents/openClaude/askio1_v2 && pip install python-dotenv pyyaml anthropic scikit-learn ddgs pybullet --break-system-packages -q && echo 'DEPS OK'"
+# 5. Verifie Ollama (optionnel)
+Write-Host "`nVerification Ollama (optionnel)..." -ForegroundColor Yellow
+wsl -d Ubuntu-22.04 -- bash -c "curl -s --max-time 3 http://localhost:11434/api/tags > /dev/null 2>&1 ; if [ $? -eq 0 ]; then echo 'Ollama UP'; else echo 'Ollama non disponible - optionnel'; fi"
 
-# 4. Vérifie Ollama
-Write-Host "`nVérification Ollama..." -ForegroundColor Yellow
-$ollamaStatus = wsl -d Ubuntu-22.04 bash -c "curl -s http://localhost:11434/api/tags 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(\"Ollama UP —\", len(d.get(\"models\",[])), \"modèles\")' 2>/dev/null || echo 'Ollama non disponible (optionnel)'"
-Write-Host $ollamaStatus
-
-Write-Host "`n=== Configuration terminée ===" -ForegroundColor Cyan
-Write-Host "Askio1 démarrera automatiquement à la prochaine session Windows." -ForegroundColor Green
-Write-Host "Pour le lancer maintenant : .\scripts\start_askio1.bat"
-Write-Host "Logs : $LogPath\daemon.log"
+Write-Host "`n=== Configuration terminee ===" -ForegroundColor Cyan
+Write-Host "Askio1 demarrera automatiquement a la prochaine session Windows." -ForegroundColor Green
+Write-Host "Pour le lancer maintenant, ouvre Ubuntu et colle :"
+Write-Host "  cd /mnt/c/Users/Utilisateur/Documents/openClaude/askio1_v2 ; python run_continuous.py --interval 10"
