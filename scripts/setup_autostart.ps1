@@ -8,6 +8,7 @@
 $ProjectPath = "C:\Users\Utilisateur\Documents\openClaude\askio1_v2"
 $LogPath     = "$ProjectPath\data\logs"
 $TaskName    = "Askio1-Robot-Daemon"
+$WslProject  = "/mnt/c/Users/Utilisateur/Documents/openClaude/askio1_v2"
 
 Write-Host "=== Setup Askio1 Auto-Start ===" -ForegroundColor Cyan
 
@@ -15,21 +16,22 @@ Write-Host "=== Setup Askio1 Auto-Start ===" -ForegroundColor Cyan
 New-Item -ItemType Directory -Force -Path $LogPath | Out-Null
 Write-Host "OK repertoire logs : $LogPath" -ForegroundColor Green
 
-# 2. Installe les dependances Python dans WSL (appels separes, pas de &&)
+# 2. Installe les dependances Python dans WSL
 Write-Host "`nInstallation des dependances Python dans WSL..." -ForegroundColor Yellow
-
-wsl -d Ubuntu-22.04 -- bash -c "cd '/mnt/c/Users/Utilisateur/Documents/openClaude/askio1_v2' ; pip install python-dotenv pyyaml anthropic scikit-learn ddgs pybullet --break-system-packages -q"
-
+wsl -d Ubuntu-22.04 -- bash -c "cd '$WslProject' ; pip install python-dotenv pyyaml anthropic scikit-learn ddgs pybullet --break-system-packages -q"
 Write-Host "OK dependances installees" -ForegroundColor Green
 
-# 3. Test rapide
+# 3. Test rapide — utilise chr() pour eviter les guillemets imbriques
+# chr(46)=.  chr(79)+chr(75)="OK"
 Write-Host "`nTest imports Python..." -ForegroundColor Yellow
-wsl -d Ubuntu-22.04 -- bash -c "cd '/mnt/c/Users/Utilisateur/Documents/openClaude/askio1_v2' ; python -c 'import sys; sys.path.insert(0,\".\"); from askio1.simulation.urdf_generator import URDFGenerator; print(\"OK imports\")'"`
+$PyTest = "import sys; sys.path.insert(0, chr(46)); from askio1.simulation.urdf_generator import URDFGenerator; print(chr(79)+chr(75))"
+wsl -d Ubuntu-22.04 -- bash -c "cd '$WslProject' ; python -c '$PyTest'"
 
 # 4. Cree la tache planifiee Windows
 Write-Host "`nCreation tache planifiee '$TaskName'..." -ForegroundColor Yellow
 
-$WslArgs = "-d Ubuntu-22.04 -- bash -c `"cd '/mnt/c/Users/Utilisateur/Documents/openClaude/askio1_v2' ; python run_continuous.py --interval 10 >> data/logs/daemon.log 2>&1`""
+$BashCmd  = "cd '$WslProject' ; python run_continuous.py --interval 10 >> data/logs/daemon.log 2>&1"
+$WslArgs  = "-d Ubuntu-22.04 -- bash -c `"$BashCmd`""
 
 $Action = New-ScheduledTaskAction `
     -Execute "wsl.exe" `
@@ -62,11 +64,11 @@ Register-ScheduledTask `
 
 Write-Host "OK tache '$TaskName' creee" -ForegroundColor Green
 
-# 5. Verifie Ollama (optionnel)
+# 5. Verifie Ollama (optionnel) — backtick-dollar pour echapper $? de PowerShell
 Write-Host "`nVerification Ollama (optionnel)..." -ForegroundColor Yellow
-wsl -d Ubuntu-22.04 -- bash -c "curl -s --max-time 3 http://localhost:11434/api/tags > /dev/null 2>&1 ; if [ $? -eq 0 ]; then echo 'Ollama UP'; else echo 'Ollama non disponible - optionnel'; fi"
+wsl -d Ubuntu-22.04 -- bash -c "curl -s --max-time 3 http://localhost:11434/api/tags > /dev/null 2>&1 ; if [ `$? -eq 0 ]; then echo 'Ollama UP'; else echo 'Ollama non disponible - optionnel'; fi"
 
 Write-Host "`n=== Configuration terminee ===" -ForegroundColor Cyan
 Write-Host "Askio1 demarrera automatiquement a la prochaine session Windows." -ForegroundColor Green
 Write-Host "Pour le lancer maintenant, ouvre Ubuntu et colle :"
-Write-Host "  cd /mnt/c/Users/Utilisateur/Documents/openClaude/askio1_v2 ; python run_continuous.py --interval 10"
+Write-Host "  cd $WslProject ; python run_continuous.py --interval 10"
