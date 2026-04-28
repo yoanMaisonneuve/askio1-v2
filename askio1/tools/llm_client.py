@@ -53,11 +53,60 @@ OLLAMA_DEFAULT_MODEL = "qwen2.5:7b"
 HEARTBEAT_INTERVAL = 60   # secondes
 
 
+def _resolve_ollama_host(host: str) -> str:
+    """
+    Détecte automatiquement l'IP de l'hôte Windows quand on tourne dans WSL2.
+    Si localhost:11434 ne répond pas, essaie l'IP du nameserver WSL (hôte Windows).
+    """
+    import urllib.request
+
+    # Teste d'abord le host configuré
+    try:
+        with urllib.request.urlopen(f"{host}/api/tags", timeout=2) as r:
+            if r.status == 200:
+                return host
+    except Exception:
+        pass
+
+    # Détecte l'IP Windows via /etc/resolv.conf (WSL2 NAT mode)
+    try:
+        resolv = open("/etc/resolv.conf").read()
+        for line in resolv.splitlines():
+            if line.startswith("nameserver"):
+                win_ip = line.split()[1].strip()
+                alt_host = f"http://{win_ip}:11434"
+                with urllib.request.urlopen(f"{alt_host}/api/tags", timeout=2) as r:
+                    if r.status == 200:
+                        logger.info(f"[OllamaBackend] WSL→Windows détecté : {alt_host}")
+                        return alt_host
+    except Exception:
+        pass
+
+    # Essaie aussi l'IP de la passerelle par défaut
+    try:
+        import subprocess
+        gw = subprocess.check_output(
+            ["ip", "route", "show", "default"], text=True
+        )
+        for part in gw.split():
+            if part.count(".") == 3:
+                alt_host = f"http://{part}:11434"
+                with urllib.request.urlopen(f"{alt_host}/api/tags", timeout=2) as r:
+                    if r.status == 200:
+                        logger.info(f"[OllamaBackend] gateway détectée : {alt_host}")
+                        return alt_host
+                break
+    except Exception:
+        pass
+
+    return host  # retourne l'original si tout échoue
+
+
 class OllamaBackend:
     """Backend Ollama — appel HTTP simple, pas de dépendance."""
 
     def __init__(self, host: str, model: str):
-        self.host  = host.rstrip("/")
+        self.host  = _resolve_ollama_host(host.rstrip("/"))
         self.model = model
         self._available: Optional[bool] = None
         self._last_check = 0.0
