@@ -3,5 +3,6 @@
   "Concevoir la feuille de route technique du robot : phases impression → assemblage → firmware → apprentissage moteur",
   "CODE_TASK: [firmware] Écrire un driver servo MG996R en MicroPython pour RP2040 — contrôle position PWM, rampe vitesse, limites angulaires configurables",
   "CODE_TASK: [simulation] Générer le fichier URDF de base pour PROTO-1 tripode 9-DOF — 3 pattes identiques, corps central cylindrique, joints rotatifs",
-  "CODE_TASK: [cad] Script Python FreeCAD paramétrique pour une patte de robot tripode — longueur fémur/tibia configurables, trous d'axe servo, supports d'impression"
+  "CODE_TASK: [cad] Script Python FreeCAD paramétrique pour une patte de robot tripode — longueur fémur/tibia configurables, trous d'axe servo, supports d'impression",
+  "CODE_TASK: [simulation] Tuning CPG proto1_tripod — lancer cpg_tuner.py --iters 30 --dur 4.0 --save-mea et rapporter les meilleurs paramètres trouvés"
 ]
