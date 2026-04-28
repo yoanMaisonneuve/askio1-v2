@@ -49,8 +49,10 @@ from askio1.tools.heartbeat import HeartbeatMonitor
 from askio1.tools.llm_client import LLMClient
 
 # ─── Fichiers ─────────────────────────────────────────────────────────────────
-TASKS_FILE    = Path("tasks.json")
-PROGRESS_FILE = Path("data/progress.json")
+TASKS_FILE      = Path("tasks.json")
+COMPLETED_FILE  = Path("data/completed_tasks.json")
+PROGRESS_FILE   = Path("data/progress.json")
+STATUS_FILE     = Path("data/status.json")
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 Path("data/logs").mkdir(parents=True, exist_ok=True)
@@ -98,6 +100,51 @@ def pop_task() -> str | None:
     task = tasks.pop(0)
     TASKS_FILE.write_text(json.dumps(tasks, ensure_ascii=False, indent=2), encoding="utf-8")
     return task
+
+
+def log_completed_task(task: str, verdict: str, cycle: int):
+    """Ajoute la tâche complétée dans completed_tasks.json."""
+    COMPLETED_FILE.parent.mkdir(parents=True, exist_ok=True)
+    history = []
+    if COMPLETED_FILE.exists():
+        try:
+            history = json.loads(COMPLETED_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    history.append({
+        "cycle": cycle,
+        "task": task,
+        "verdict": verdict,
+        "completed_at": datetime.utcnow().isoformat(),
+    })
+    COMPLETED_FILE.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def write_status(session_id: str, cycle: int, task: str, verdict: str,
+                 queue_len: int, ollama_up: bool, usage: dict):
+    """Écrit data/status.json — lisible depuis GitHub pour visibilité mobile."""
+    STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    completed = []
+    if COMPLETED_FILE.exists():
+        try:
+            completed = json.loads(COMPLETED_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    remaining = load_tasks()
+    status = {
+        "session_id":      session_id,
+        "cycle":           cycle,
+        "updated_at":      datetime.utcnow().isoformat(),
+        "last_task":       task[:120],
+        "last_verdict":    verdict,
+        "queue_remaining": len(remaining),
+        "queue_preview":   [t[:80] for t in remaining[:3]],
+        "completed_total": len(completed),
+        "last_completed":  completed[-3:] if completed else [],
+        "ollama_up":       ollama_up,
+        "api_calls":       usage,
+    }
+    STATUS_FILE.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def generate_autonomous_task(llm: LLMClient, store: MemoryStore, goal: str) -> tuple[str, bool]:
@@ -278,6 +325,9 @@ def run_continuous(goal: str = "Développer un système cognitif autonome",
         })
 
         save_progress(session_id, cycle, store.stats())
+        log_completed_task(task, verdict, cycle)
+        write_status(session_id, cycle, task, verdict,
+                     len(load_tasks()), hb["ollama_up"], usage)
 
         # Tuning CPG automatique si des échecs de simulation sont détectés
         _maybe_run_cpg_tuning(store, cycle)
