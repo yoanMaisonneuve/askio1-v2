@@ -1,7 +1,9 @@
 [
-  "Recherche web : frameworks open-source de locomotion pour robots bipèdes (ROS2, MuJoCo, PyBullet) — avantages/inconvénients",
-  "Concevoir la feuille de route technique du robot : phases impression → assemblage → firmware → apprentissage moteur",
   "CODE_TASK: [firmware] Écrire un driver servo MG996R en MicroPython pour RP2040 — contrôle position PWM, rampe vitesse, limites angulaires configurables",
   "CODE_TASK: [cad] Script Python FreeCAD paramétrique pour une patte de robot tripode — longueur fémur/tibia configurables, trous d'axe servo, supports d'impression",
-  "CODE_TASK: [simulation] Tuning CPG proto1_tripod — lancer cpg_tuner.py --iters 30 --dur 4.0 --save-mea et rapporter les meilleurs paramètres trouvés"
+  "CODE_TASK: [simulation] Tuning CPG proto1_tripod — lancer cpg_tuner.py --iters 30 --dur 4.0 --save-mea et rapporter les meilleurs paramètres trouvés",
+  "Recherche web : meilleures pratiques impression 3D PLA pour pièces mécaniques de robots — épaisseur paroi, remplissage, orientation d'impression pour résistance aux couples",
+  "Concevoir le schéma de câblage RP2040 ↔ 9 servos MG996R : alimentation 5V séparée, pins PWM, condensateurs de découplage, protection contre surtension",
+  "Recherche web : benchmarks comparatifs MuJoCo vs PyBullet vs Isaac Sim pour locomotion de robots à pattes — précision physique, vitesse, facilité d'intégration Python",
+  "CODE_TASK: [firmware] Écrire le firmware de boot RP2040 en MicroPython : initialisation des servos, lecture capteurs IMU MPU6050, boucle principale CPG → servos à 100Hz"
 ]
