@@ -132,6 +132,53 @@ def save_progress(session_id: str, cycle: int, stats: dict):
     PROGRESS_FILE.write_text(json.dumps(prog, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _maybe_run_cpg_tuning(store: "MemoryStore", cycle: int) -> bool:
+    """
+    Déclenche un tuning CPG si suffisamment d'échecs de simulation sont détectés.
+    S'exécute tous les CPG_TUNING_INTERVAL cycles.
+    Retourne True si le tuning a été exécuté.
+    """
+    CPG_TUNING_INTERVAL   = 5   # vérifie tous les N cycles
+    SIM_FAILURE_THRESHOLD = 2   # seuil d'échecs avant déclenchement
+
+    if cycle % CPG_TUNING_INTERVAL != 0:
+        return False
+
+    try:
+        stats = store.stats()
+        failures = sum(
+            1 for e in store.all_entries()
+            if getattr(e, "type", "") == "sim_failure"
+        ) if hasattr(store, "all_entries") else 0
+
+        # Fallback : cherche dans les entrées récentes via retrieve
+        if failures == 0:
+            recent = store.retrieve_relevant("sim_failure robot chute fallen", max_results=10)
+            failures = recent.count("sim_failure")
+
+        if failures < SIM_FAILURE_THRESHOLD:
+            return False
+
+        logger.info(f"[Continuous] {failures} sim_failures détectés — lancement CPG tuner...")
+
+        from askio1.simulation.cpg_tuner import CPGTuner
+        tuner  = CPGTuner(proto="proto1_tripod", sim_duration=3.0, n_random=5, n_hillclimb=8)
+        result = tuner.tune(seed=cycle)
+        out    = tuner.save_result(result, save_mea=True)
+
+        logger.info(
+            f"[CPGTuner] score={result.best_score} "
+            f"dist={result.best_distance_m}m "
+            f"falls={result.best_falls} "
+            f"→ {out.name}"
+        )
+        return True
+
+    except Exception as e:
+        logger.warning(f"[CPGTuner] échec non bloquant : {e}")
+        return False
+
+
 def run_continuous(goal: str = "Développer un système cognitif autonome",
                    interval: int = 5,
                    max_cycles: int = 0):
@@ -231,6 +278,9 @@ def run_continuous(goal: str = "Développer un système cognitif autonome",
         })
 
         save_progress(session_id, cycle, store.stats())
+
+        # Tuning CPG automatique si des échecs de simulation sont détectés
+        _maybe_run_cpg_tuning(store, cycle)
 
         if _shutdown[0]:
             break
