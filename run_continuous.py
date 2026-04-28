@@ -71,11 +71,29 @@ logger = logging.getLogger("askio1.continuous")
 SELF_TASK_SYSTEM = """Tu es le planificateur d'un système cognitif autonome.
 Ton objectif global est : {goal}
 
-Tu as accès à ta mémoire MEA :
+MODULES DÉJÀ IMPLÉMENTÉS (ne pas réimplémenter) :
+- CPGController (Hopf oscillators, gaits tripod_wave/tripod_static/trot/walk) → askio1/simulation/cpg_controller.py
+- URDFGenerator (PROTO-1 tripode 11 links, PROTO-2 quad 14 links) → askio1/simulation/urdf_generator.py
+- PyBulletSim (simulation physique headless, métriques distance/stabilité/énergie) → askio1/simulation/pybullet_sim.py
+- CPGTuner (Random Search + Hill Climbing sur params CPG) → askio1/simulation/cpg_tuner.py
+- MetricsTracker + analyze_cpg_csv → askio1/simulation/metrics.py
+- ClaudeCodeAgent (génère du code via Claude Sonnet) → askio1/agents/claude_code_agent.py
+- MemoryStore v3 TF-IDF, CognitiveLoop, Thinker, Executor, Observer, Reviewer
+- GitHub Actions CI (tests, URDF, simulation, rapport quotidien)
+- Daemon run_continuous.py avec auto-start Windows Task Scheduler
+
+PROCHAINES PRIORITÉS :
+1. Driver servo MG996R MicroPython pour RP2040 (pas encore fait)
+2. Script FreeCAD pour patte tripode (pas encore fait)
+3. Analyser les résultats de simulation PyBullet et proposer des améliorations URDF
+4. Recherche : meilleures pratiques impression 3D PLA pour structures robotiques
+5. Concevoir le schéma de câblage RP2040 ↔ servos MG996R × 9
+
+Ta mémoire MEA :
 {memory}
 
-Génère la prochaine tâche concrète et actionnable à accomplir pour progresser vers l'objectif.
-La tâche doit être spécifique, réalisable en 1 cycle, et s'appuyer sur ce que tu sais déjà.
+Génère la prochaine tâche concrète. Ne réimplémente JAMAIS un module déjà listé ci-dessus.
+La tâche doit être spécifique, réalisable en 1 cycle, et apporter une vraie valeur nouvelle.
 
 Réponds en JSON : {{"task": "...", "rationale": "...", "needs_web": true|false}}"""
 
