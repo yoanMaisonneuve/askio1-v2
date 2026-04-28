@@ -1,9 +1,10 @@
 [
   "CODE_TASK: [firmware] Écrire un driver servo MG996R en MicroPython pour RP2040 — contrôle position PWM, rampe vitesse, limites angulaires configurables",
   "CODE_TASK: [cad] Script Python FreeCAD paramétrique pour une patte de robot tripode — longueur fémur/tibia configurables, trous d'axe servo, supports d'impression",
-  "CODE_TASK: [simulation] Tuning CPG proto1_tripod — lancer cpg_tuner.py --iters 30 --dur 4.0 --save-mea et rapporter les meilleurs paramètres trouvés",
-  "Recherche web : meilleures pratiques impression 3D PLA pour pièces mécaniques de robots — épaisseur paroi, remplissage, orientation d'impression pour résistance aux couples",
-  "Concevoir le schéma de câblage RP2040 ↔ 9 servos MG996R : alimentation 5V séparée, pins PWM, condensateurs de découplage, protection contre surtension",
-  "Recherche web : benchmarks comparatifs MuJoCo vs PyBullet vs Isaac Sim pour locomotion de robots à pattes — précision physique, vitesse, facilité d'intégration Python",
-  "CODE_TASK: [firmware] Écrire le firmware de boot RP2040 en MicroPython : initialisation des servos, lecture capteurs IMU MPU6050, boucle principale CPG → servos à 100Hz"
+  "CODE_TASK: [simulation] Tuning CPG proto1_tripod — utiliser cpg_tuner.py avec n_random=10 n_hillclimb=20 dur=4.0 save-mea, rapporter les meilleurs paramètres",
+  "Recherche web : meilleures pratiques impression 3D PLA pour pièces mécaniques robotiques — épaisseur paroi, remplissage, orientation pour résistance aux couples",
+  "Concevoir le schéma de câblage RP2040 ↔ 9 servos MG996R : alimentation 5V séparée, pins PWM, condensateurs de découplage, protection surtension",
+  "CODE_TASK: [firmware] Firmware boot RP2040 MicroPython : init servos, lecture IMU MPU6050, boucle principale CPG → servos à 100Hz",
+  "Recherche web : composants électroniques pour robot tripode RP2040 — prix IMU MPU6050, régulateur 5V 10A, connecteurs servo, budget total estimé",
+  "Analyser les artifacts générés dans data/artifacts/ et produire un rapport de synthèse : ce qui est fait, qualité estimée, prochaines étapes concrètes"
 ]
