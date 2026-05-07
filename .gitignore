@@ -6,3 +6,9 @@ __pycache__/
 .venv/
 venv/
 *.db
+
+# Reinforcement 2026-05-07 — privacy + heavy files
+journal/
+*.mp4
+*.mov
+.git_BROKEN_*/

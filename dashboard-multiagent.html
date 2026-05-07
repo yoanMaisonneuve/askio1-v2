@@ -1,0 +1,1539 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASKIO1 — Dashboard Multi-Agents</title>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --bg2: #111118;
+  --bg3: #18181f;
+  --bg4: #1e1e28;
+  --border: #2a2a3a;
+  --border2: #353545;
+  --text: #e8e8f0;
+  --text2: #9898b0;
+  --text3: #5a5a72;
+  --accent: #6c5ce7;
+  --accent2: #a29bfe;
+  --green: #00b894;
+  --green2: #55efc4;
+  --yellow: #fdcb6e;
+  --yellow2: #ffeaa7;
+  --red: #d63031;
+  --red2: #ff7675;
+  --blue: #0984e3;
+  --blue2: #74b9ff;
+  --font: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── HEADER ── */
+header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent2);
+  letter-spacing: 2px;
+}
+
+.logo-slash { color: var(--text3); margin: 0 4px; }
+
+.header-title {
+  font-size: 13px;
+  color: var(--text2);
+  letter-spacing: 0.5px;
+}
+
+.header-spacer { flex: 1; }
+
+.header-meta {
+  font-family: var(--font);
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.header-pulse {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.header-live {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--green);
+  font-family: var(--font);
+}
+
+/* ── LAYOUT ── */
+.page {
+  padding: 20px 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ── KPI ROW ── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.kpi-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+
+.kpi-card.green::before { background: var(--green); }
+.kpi-card.yellow::before { background: var(--yellow); }
+.kpi-card.red::before { background: var(--red); }
+.kpi-card.blue::before { background: var(--blue); }
+.kpi-card.purple::before { background: var(--accent); }
+
+.kpi-label {
+  font-size: 10px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.kpi-value {
+  font-family: var(--font);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.kpi-sub {
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.kpi-trend {
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.kpi-trend.up { color: var(--green); }
+.kpi-trend.down { color: var(--red); }
+.kpi-trend.warn { color: var(--yellow); }
+
+/* ── PROGRESS BAR ── */
+.progress-wrap { margin-top: 8px; }
+.progress-track {
+  height: 3px;
+  background: var(--bg4);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+.progress-fill.green { background: var(--green); }
+.progress-fill.yellow { background: var(--yellow); }
+.progress-fill.red { background: var(--red); }
+.progress-fill.blue { background: var(--blue); }
+.progress-fill.purple { background: var(--accent); }
+
+/* ── MAIN GRID ── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* ── SECTION ── */
+.section {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.section:last-child { margin-bottom: 0; }
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-badge {
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-family: var(--font);
+}
+
+.badge-green { background: rgba(0,184,148,0.15); color: var(--green); border: 1px solid rgba(0,184,148,0.3); }
+.badge-yellow { background: rgba(253,203,110,0.15); color: var(--yellow); border: 1px solid rgba(253,203,110,0.3); }
+.badge-red { background: rgba(214,48,49,0.15); color: var(--red2); border: 1px solid rgba(214,48,49,0.3); }
+.badge-blue { background: rgba(9,132,227,0.15); color: var(--blue2); border: 1px solid rgba(9,132,227,0.3); }
+.badge-purple { background: rgba(108,92,231,0.15); color: var(--accent2); border: 1px solid rgba(108,92,231,0.3); }
+.badge-gray { background: rgba(90,90,114,0.15); color: var(--text3); border: 1px solid var(--border); }
+
+.section-body { padding: 12px 16px; }
+
+/* ── AGENT CARDS ── */
+.agent-card {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: var(--bg3);
+  position: relative;
+}
+
+.agent-card:last-child { margin-bottom: 0; }
+
+.agent-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.agent-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.agent-role {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+.agent-task {
+  font-size: 11px;
+  color: var(--text2);
+  margin-top: 6px;
+  font-style: italic;
+}
+
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-green { background: var(--green); box-shadow: 0 0 4px var(--green); }
+.dot-yellow { background: var(--yellow); }
+.dot-red { background: var(--red); }
+.dot-gray { background: var(--text3); }
+.dot-blue { background: var(--blue); box-shadow: 0 0 4px var(--blue); }
+
+.status-label {
+  font-size: 10px;
+  font-family: var(--font);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.status-label.active { color: var(--green); }
+.status-label.paused { color: var(--yellow); }
+.status-label.idle { color: var(--text3); }
+.status-label.running { color: var(--blue); }
+
+/* ── PROJECT LIST ── */
+.project-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.project-item:last-child { border-bottom: none; padding-bottom: 0; }
+
+.project-icon {
+  font-size: 14px;
+  width: 26px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.project-info { flex: 1; min-width: 0; }
+
+.project-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-sub {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+.project-progress {
+  margin-top: 5px;
+}
+
+/* ── ALERTS ── */
+.alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.alert-item:last-child { border-bottom: none; }
+
+.alert-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+.alert-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.alert-sub {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+.alert-time {
+  font-family: var(--font);
+  font-size: 10px;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+
+/* ── METRICS GRID ── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.metric-cell {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+.metric-num {
+  font-family: var(--font);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.metric-unit {
+  font-size: 10px;
+  color: var(--text3);
+  margin-top: 3px;
+}
+
+/* ── SESSION TIMELINE ── */
+.timeline { position: relative; padding-left: 22px; }
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px; top: 8px; bottom: 8px;
+  width: 1px;
+  background: var(--border2);
+}
+
+.timeline-item {
+  position: relative;
+  padding-bottom: 16px;
+}
+
+.timeline-item:last-child { padding-bottom: 0; }
+
+.timeline-dot {
+  position: absolute;
+  left: -18px;
+  top: 4px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg2);
+}
+
+.timeline-dot.green { background: var(--green); }
+.timeline-dot.yellow { background: var(--yellow); }
+.timeline-dot.blue { background: var(--blue); }
+.timeline-dot.purple { background: var(--accent); }
+
+.timeline-date {
+  font-family: var(--font);
+  font-size: 10px;
+  color: var(--text3);
+  margin-bottom: 3px;
+}
+
+.timeline-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.timeline-sub {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+.timeline-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg4);
+  color: var(--text3);
+  border: 1px solid var(--border);
+  font-family: var(--font);
+}
+
+/* ── BOTTOM GRID ── */
+.bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* ── MEMORY MAP ── */
+.memory-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+}
+
+.memory-file:last-child { border-bottom: none; }
+
+.memory-icon { font-size: 13px; }
+
+.memory-name {
+  font-size: 11px;
+  font-family: var(--font);
+  color: var(--accent2);
+  flex: 1;
+}
+
+.memory-type {
+  font-size: 10px;
+  color: var(--text3);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg4);
+}
+
+/* ── CHANNELS ── */
+.channel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.channel-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.channel-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.channel-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.channel-meta {
+  font-size: 10px;
+  color: var(--text3);
+}
+
+/* ── EVAL BAR ── */
+.eval-row {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.eval-row:last-child { border-bottom: none; }
+
+.eval-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.eval-label {
+  font-size: 11px;
+  color: var(--text2);
+}
+
+.eval-score {
+  font-family: var(--font);
+  font-size: 11px;
+  color: var(--accent2);
+}
+
+/* ── SEPARATOR ── */
+.right-col-inner { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg2);
+}
+
+.footer-left {
+  font-family: var(--font);
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.footer-right {
+  font-size: 11px;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.footer-link {
+  color: var(--accent2);
+  text-decoration: none;
+}
+
+.footer-link:hover { text-decoration: underline; }
+
+/* ── TOOLTIP ── */
+[data-tip] { position: relative; cursor: help; }
+[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg4);
+  border: 1px solid var(--border2);
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+  z-index: 200;
+  pointer-events: none;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1100px) {
+  .main-grid { grid-template-columns: 1fr; }
+  .kpi-row { grid-template-columns: repeat(3, 1fr); }
+  .bottom-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── GLOW ACCENT ── */
+.glow-purple { text-shadow: 0 0 12px rgba(162,155,254,0.4); }
+.glow-green { text-shadow: 0 0 12px rgba(0,184,148,0.4); }
+
+/* ── TAB SYSTEM ── */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+}
+
+.tab-btn {
+  padding: 9px 14px;
+  font-size: 11px;
+  color: var(--text3);
+  cursor: pointer;
+  border: none;
+  background: none;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  font-family: var(--font-ui);
+  white-space: nowrap;
+}
+
+.tab-btn:hover { color: var(--text2); }
+.tab-btn.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+
+.tab-pane { display: none; padding: 12px 16px; }
+.tab-pane.active { display: block; }
+
+/* ── SECTION FULL WIDTH ── */
+.section-full {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+/* ── MINI TABLE ── */
+.mini-table { width: 100%; border-collapse: collapse; }
+.mini-table th {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text3);
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+.mini-table td {
+  padding: 8px 8px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.mini-table tr:last-child td { border-bottom: none; }
+.mini-table tr:hover td { background: var(--bg3); }
+
+.mono { font-family: var(--font); }
+
+/* ── SPARKLINE ── */
+.sparkline {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 24px;
+}
+.spark-bar {
+  flex: 1;
+  border-radius: 2px 2px 0 0;
+  min-height: 3px;
+  background: var(--accent);
+  opacity: 0.5;
+}
+.spark-bar.last { opacity: 1; }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ASKIO1<span class="logo-slash">/</span>OPS</div>
+  <div class="header-title">Dashboard Multi-Agents · Yoan × Claude</div>
+  <div class="header-spacer"></div>
+  <div class="header-live">
+    <div class="header-pulse"></div>
+    LIVE
+  </div>
+  <div class="header-meta" id="current-date"></div>
+</header>
+
+<div class="page">
+
+  <!-- KPI ROW -->
+  <div class="kpi-row">
+
+    <div class="kpi-card green">
+      <div class="kpi-label">Sessions</div>
+      <div class="kpi-value glow-green">4</div>
+      <div class="kpi-sub">depuis 2026-04-28</div>
+      <div class="progress-wrap">
+        <div class="progress-track"><div class="progress-fill green" style="width:8%"></div></div>
+      </div>
+      <div class="kpi-trend up">↑ Session 4 active</div>
+    </div>
+
+    <div class="kpi-card purple">
+      <div class="kpi-label">Score EVAL</div>
+      <div class="kpi-value glow-purple">87.5%</div>
+      <div class="kpi-sub">35/40 — session 4</div>
+      <div class="progress-wrap">
+        <div class="progress-track"><div class="progress-fill purple" style="width:87.5%"></div></div>
+      </div>
+      <div class="kpi-trend up">↑ Au-dessus cible 80%</div>
+    </div>
+
+    <div class="kpi-card yellow">
+      <div class="kpi-label">Sprint robotique</div>
+      <div class="kpi-value">J+5</div>
+      <div class="kpi-sub">/ 28 jours</div>
+      <div class="progress-wrap">
+        <div class="progress-track"><div class="progress-fill yellow" style="width:17.8%"></div></div>
+      </div>
+      <div class="kpi-trend warn">⏸ Pause depuis J+1</div>
+    </div>
+
+    <div class="kpi-card red">
+      <div class="kpi-label">Pacte LinkedIn</div>
+      <div class="kpi-value">J+6</div>
+      <div class="kpi-sub">1 post · 0 candidature</div>
+      <div class="progress-wrap">
+        <div class="progress-track"><div class="progress-fill red" style="width:3.3%"></div></div>
+      </div>
+      <div class="kpi-trend down">↓ Clauses non respectées</div>
+    </div>
+
+    <div class="kpi-card blue">
+      <div class="kpi-label">Preprint F1</div>
+      <div class="kpi-value">84j</div>
+      <div class="kpi-sub">restants / 90</div>
+      <div class="progress-wrap">
+        <div class="progress-track"><div class="progress-fill blue" style="width:6.7%"></div></div>
+      </div>
+      <div class="kpi-trend warn">⚠ Fenêtre se referme</div>
+    </div>
+
+    <div class="kpi-card green">
+      <div class="kpi-label">Erreurs corrigées</div>
+      <div class="kpi-value glow-green">8/8</div>
+      <div class="kpi-sub">taux correction 100%</div>
+      <div class="progress-wrap">
+        <div class="progress-track"><div class="progress-fill green" style="width:100%"></div></div>
+      </div>
+      <div class="kpi-trend up">✓ Aucune erreur ouverte</div>
+    </div>
+
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- LEFT COL -->
+    <div>
+
+      <!-- AGENTS -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">⚡ Agents</div>
+          <span class="section-badge badge-blue">4 agents</span>
+        </div>
+        <div class="section-body">
+
+          <div class="agent-card">
+            <div class="agent-card-header">
+              <div>
+                <div class="agent-name">Claude — Cowork Session</div>
+                <div class="agent-role">Orchestrateur principal · mémoire · fichiers · deploy</div>
+              </div>
+              <div class="status-label active"><div class="status-dot dot-green"></div>ACTIVE</div>
+            </div>
+            <div class="agent-task">→ 100 boucles auto-amélioration · build dashboard</div>
+            <div class="progress-wrap" style="margin-top:8px">
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:4px">
+                <span>Contexte session</span><span>élevé</span>
+              </div>
+              <div class="progress-track"><div class="progress-fill yellow" style="width:72%"></div></div>
+            </div>
+          </div>
+
+          <div class="agent-card">
+            <div class="agent-card-header">
+              <div>
+                <div class="agent-name">Sprint Subagents (×5)</div>
+                <div class="agent-role">Dev robotique · V6 ADAPTIVE · IK · CPG</div>
+              </div>
+              <div class="status-label paused"><div class="status-dot dot-yellow"></div>PAUSE</div>
+            </div>
+            <div class="agent-task">Dernier run: J+1 (2026-04-30) · Victoire V6 ADAPTIVE</div>
+          </div>
+
+          <div class="agent-card">
+            <div class="agent-card-header">
+              <div>
+                <div class="agent-name">askio1-v2 Daemon</div>
+                <div class="agent-role">Orchestrateur cognitif local · WSL · Opus API</div>
+              </div>
+              <div class="status-label idle"><div class="status-dot dot-gray"></div>IDLE</div>
+            </div>
+            <div class="agent-task">Prochaines tâches: driver servo MG996R · FreeCAD · CPG tuning</div>
+          </div>
+
+          <div class="agent-card">
+            <div class="agent-card-header">
+              <div>
+                <div class="agent-name">dIAlogue Deploy Pipeline</div>
+                <div class="agent-role">Azure SWA · ep24 → askio1.com/ep24</div>
+              </div>
+              <div class="status-label active"><div class="status-dot dot-green"></div>DEPLOYED</div>
+            </div>
+            <div class="agent-task">91+ entités · 18 personnes · 12 avec LinkedIn · 12 catégories</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- PROJECTS -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">📁 Projets</div>
+          <span class="section-badge badge-gray">6 actifs</span>
+        </div>
+        <div class="section-body">
+
+          <div class="project-item">
+            <div class="project-icon">🤖</div>
+            <div class="project-info">
+              <div class="project-name">Sprint Robotique Humanoïde</div>
+              <div class="project-sub">J+5/28 · cyborg-robotique-V1.0 · pause non officielle</div>
+              <div class="project-progress">
+                <div class="progress-track" style="margin-top:4px"><div class="progress-fill yellow" style="width:17.8%"></div></div>
+              </div>
+            </div>
+            <span class="section-badge badge-yellow">⏸ PAUSE</span>
+          </div>
+
+          <div class="project-item">
+            <div class="project-icon">🎙</div>
+            <div class="project-info">
+              <div class="project-name">dIAlogue ep24</div>
+              <div class="project-sub">SPA déployée · askio1.com/ep24 · 91+ entités</div>
+              <div class="project-progress">
+                <div class="progress-track" style="margin-top:4px"><div class="progress-fill green" style="width:100%"></div></div>
+              </div>
+            </div>
+            <span class="section-badge badge-green">✓ LIVE</span>
+          </div>
+
+          <div class="project-item">
+            <div class="project-icon">🦾</div>
+            <div class="project-info">
+              <div class="project-name">askio1-v2 Daemon</div>
+              <div class="project-sub">Tripode autonome · 8 tâches en queue · Ollama fix pending</div>
+            </div>
+            <span class="section-badge badge-yellow">⏸ PAUSE</span>
+          </div>
+
+          <div class="project-item">
+            <div class="project-icon">📝</div>
+            <div class="project-info">
+              <div class="project-name">Pacte LinkedIn</div>
+              <div class="project-sub">J+6/180 · 1 post · 0 candidature · 4 foresights actives</div>
+              <div class="project-progress">
+                <div class="progress-track" style="margin-top:4px"><div class="progress-fill red" style="width:3.3%"></div></div>
+              </div>
+            </div>
+            <span class="section-badge badge-red">⚠ RETARD</span>
+          </div>
+
+          <div class="project-item">
+            <div class="project-icon">📄</div>
+            <div class="project-info">
+              <div class="project-name">Preprint F1</div>
+              <div class="project-sub">84j restants · V6 ADAPTIVE = matière empirique</div>
+              <div class="project-progress">
+                <div class="progress-track" style="margin-top:4px"><div class="progress-fill blue" style="width:6.7%"></div></div>
+              </div>
+            </div>
+            <span class="section-badge badge-blue">🕐 EN COURS</span>
+          </div>
+
+          <div class="project-item">
+            <div class="project-icon">🏗</div>
+            <div class="project-info">
+              <div class="project-name">Blueprint / Enter-Game</div>
+              <div class="project-sub">Tâche #27 · structuration README public en attente</div>
+            </div>
+            <span class="section-badge badge-gray">💤 VEILLE</span>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COL -->
+    <div class="right-col-inner">
+
+      <!-- ALERTS -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">🔔 Alertes actives</div>
+          <span class="section-badge badge-red">2 critiques</span>
+        </div>
+        <div class="section-body">
+
+          <div class="alert-item">
+            <div class="alert-icon">🔴</div>
+            <div>
+              <div class="alert-text">Pacte — 0 candidature envoyée depuis signature</div>
+              <div class="alert-sub">Clause 5 critique · Cible 2–3/semaine · J+6 sans aucune</div>
+            </div>
+            <div class="alert-time">J+6</div>
+          </div>
+
+          <div class="alert-item">
+            <div class="alert-icon">🔴</div>
+            <div>
+              <div class="alert-text">Pacte — 5 jours sans publication LinkedIn</div>
+              <div class="alert-sub">Post #1 manifeste seulement · Post #2 en retard de 4 jours</div>
+            </div>
+            <div class="alert-time">J+5</div>
+          </div>
+
+          <div class="alert-item">
+            <div class="alert-icon">🟡</div>
+            <div>
+              <div class="alert-text">Sprint robotique en pause non officielle</div>
+              <div class="alert-sub">Dernier commit J+1 · Yoan sur dIAlogue J+2→J+5 · Fin: 2026-05-27</div>
+            </div>
+            <div class="alert-time">J+5</div>
+          </div>
+
+          <div class="alert-item">
+            <div class="alert-icon">🟡</div>
+            <div>
+              <div class="alert-text">Preprint F1 — fenêtre se referme</div>
+              <div class="alert-sub">84 jours restants / 90 · Aucune avancée depuis J+1</div>
+            </div>
+            <div class="alert-time">84j</div>
+          </div>
+
+          <div class="alert-item">
+            <div class="alert-icon">🟡</div>
+            <div>
+              <div class="alert-text">Contexte session élevé</div>
+              <div class="alert-sub">Reprise après résumé · ~72% fenêtre utilisée · Checkpoint recommandé</div>
+            </div>
+            <div class="alert-time">Now</div>
+          </div>
+
+          <div class="alert-item">
+            <div class="alert-icon">🟢</div>
+            <div>
+              <div class="alert-text">Ollama WSL→Windows — fix auto-détection IP poussé</div>
+              <div class="alert-sub">À valider au prochain démarrage daemon askio1-v2</div>
+            </div>
+            <div class="alert-time">J+5</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- METRICS + SESSION LOG (tabbed) -->
+      <div class="section" style="flex:1">
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab(this,'metrics')">📊 Métriques</button>
+          <button class="tab-btn" onclick="switchTab(this,'sessions')">🕐 Sessions</button>
+          <button class="tab-btn" onclick="switchTab(this,'eval')">✓ EVAL</button>
+          <button class="tab-btn" onclick="switchTab(this,'errors')">🐛 Erreurs</button>
+        </div>
+
+        <!-- METRICS TAB -->
+        <div class="tab-pane active" id="tab-metrics">
+          <div class="metrics-grid">
+            <div class="metric-cell" data-tip="Total sessions depuis création du système">
+              <div class="metric-num">4</div>
+              <div class="metric-unit">Sessions</div>
+            </div>
+            <div class="metric-cell" data-tip="Estimation ordre de grandeur sur toutes les sessions">
+              <div class="metric-num mono">~400K</div>
+              <div class="metric-unit">Tokens total</div>
+            </div>
+            <div class="metric-cell" data-tip="Coût API estimé total (Sonnet 4.6)">
+              <div class="metric-num mono">~$6</div>
+              <div class="metric-unit">Coût total</div>
+            </div>
+            <div class="metric-cell" data-tip="Fichiers créés ou modifiés">
+              <div class="metric-num">65+</div>
+              <div class="metric-unit">Fichiers</div>
+            </div>
+            <div class="metric-cell" data-tip="Subagents lancés (estimation)">
+              <div class="metric-num">11+</div>
+              <div class="metric-unit">Subagents</div>
+            </div>
+            <div class="metric-cell" data-tip="Déploiements Azure SWA">
+              <div class="metric-num">1</div>
+              <div class="metric-unit">Déploiements</div>
+            </div>
+            <div class="metric-cell" data-tip="Erreurs détectées et toutes corrigées">
+              <div class="metric-num" style="color:var(--green)">8/8</div>
+              <div class="metric-unit">Erreurs corrigées</div>
+            </div>
+            <div class="metric-cell" data-tip="Score EVAL session 4 (rubrique 8 critères)">
+              <div class="metric-num" style="color:var(--accent2)">87.5%</div>
+              <div class="metric-unit">Score EVAL</div>
+            </div>
+          </div>
+
+          <div style="margin-top:16px">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Vélocité par session (tokens estimés)</div>
+            <div class="sparkline">
+              <div class="spark-bar" style="height:60%" data-tip="S1: ~100K tokens"></div>
+              <div class="spark-bar" style="height:40%" data-tip="S2: ~50K tokens"></div>
+              <div class="spark-bar" style="height:80%" data-tip="S3: ~150K tokens"></div>
+              <div class="spark-bar last" style="height:100%" data-tip="S4: ~200K+ tokens (reprise résumé)"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SESSIONS TAB -->
+        <div class="tab-pane" id="tab-sessions">
+          <div class="timeline">
+
+            <div class="timeline-item">
+              <div class="timeline-dot purple"></div>
+              <div class="timeline-date">2026-05-04 · S4 · ~4h</div>
+              <div class="timeline-title">dIAlogue ep24 + Auto-amélioration</div>
+              <div class="timeline-sub">5 LinkedIn slugs · 2 noms corrigés · 2 postures · 1 événement · EVAL+DASHBOARD+OPERATIONS · 20→120 boucles</div>
+              <div class="timeline-tags">
+                <span class="tag">contenu</span>
+                <span class="tag">méta</span>
+                <span class="tag">deploy</span>
+                <span class="tag">mémoire</span>
+              </div>
+            </div>
+
+            <div class="timeline-item">
+              <div class="timeline-dot green"></div>
+              <div class="timeline-date">2026-04-30 · S3 · ~2h</div>
+              <div class="timeline-title">Sprint J+1 — Victoire V6 ADAPTIVE</div>
+              <div class="timeline-sub">0.067 ± 0.023m SO-100 (N=10 seeds) · 3.3× baseline IK oracle MuJoCo</div>
+              <div class="timeline-tags">
+                <span class="tag">sprint</span>
+                <span class="tag">déléguée</span>
+                <span class="tag">victoire</span>
+              </div>
+            </div>
+
+            <div class="timeline-item">
+              <div class="timeline-dot blue"></div>
+              <div class="timeline-date">2026-04-29 · S2 · ~2h</div>
+              <div class="timeline-title">Sprint J+0 — Setup & Launch</div>
+              <div class="timeline-sub">Repo dyad public (42 fichiers) · sprint validé · protocoles reprise</div>
+              <div class="timeline-tags">
+                <span class="tag">sprint</span>
+                <span class="tag">setup</span>
+              </div>
+            </div>
+
+            <div class="timeline-item">
+              <div class="timeline-dot purple"></div>
+              <div class="timeline-date">2026-04-28 · S1 · ~6h</div>
+              <div class="timeline-title">Fondation — Pacte + Système Heartbeat</div>
+              <div class="timeline-sub">9 couches cognitives · 6 enveloppes disqualification · pacte LinkedIn · maximes #001-005 · CV PDF</div>
+              <div class="timeline-tags">
+                <span class="tag">fondation</span>
+                <span class="tag">philosophie</span>
+                <span class="tag">pacte</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- EVAL TAB -->
+        <div class="tab-pane" id="tab-eval">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Session 4 · Score: 35/40 (87.5%) · Cible: ≥32/40</div>
+
+          <div class="eval-row">
+            <div class="eval-row-top">
+              <div class="eval-label">Précision factuelle</div>
+              <div class="eval-score">4/5</div>
+            </div>
+            <div class="progress-track"><div class="progress-fill yellow" style="width:80%"></div></div>
+          </div>
+
+          <div class="eval-row">
+            <div class="eval-row-top">
+              <div class="eval-label">Fidélité à l'intention</div>
+              <div class="eval-score">5/5</div>
+            </div>
+            <div class="progress-track"><div class="progress-fill green" style="width:100%"></div></div>
+          </div>
+
+          <div class="eval-row">
+            <div class="eval-row-top">
+              <div class="eval-label">Vitesse d'exécution</div>
+              <div class="eval-score">4/5</div>
+            </div>
+            <div class="progress-track"><div class="progress-fill yellow" style="width:80%"></div></div>
+          </div>
+
+          <div class="eval-row">
+            <div class="eval-row-top">
+              <div class="eval-label">Gestion du contexte</div>
+              <div class="eval-score">4/5</div>
+            </div>
+            <div class="progress-track"><div class="progress-fill yellow" style="width:80%"></div></div>
+          </div>
+
+          <div class="eval-row">
+            <div class="eval-row-top">
+              <div class="eval-label">Couverture des erreurs</div>
+              <div class="eval-score">4/5</div>
+            </div>
+            <div class="progress-track"><div class="progress-fill yellow" style="width:80%"></div></div>
+          </div>
+
+          <div class="eval-row">
+            <div class="eval-row-top">
+              <div class="eval-label">Vérification avant deploy</div>
+              <div class="eval-score">5/5</div>
+            </div>
+            <div class="progress-track"><div class="progress-fill green" style="width:100%"></div></div>
+          </div>
+
+          <div class="eval-row">
+            <div class="eval-row-top">
+              <div class="eval-label">Qualité de la mémoire</div>
+              <div class="eval-score">5/5</div>
+            </div>
+            <div class="progress-track"><div class="progress-fill green" style="width:100%"></div></div>
+          </div>
+
+          <div class="eval-row">
+            <div class="eval-row-top">
+              <div class="eval-label">Bruit de communication</div>
+              <div class="eval-score">4/5</div>
+            </div>
+            <div class="progress-track"><div class="progress-fill yellow" style="width:80%"></div></div>
+          </div>
+
+        </div>
+
+        <!-- ERRORS TAB -->
+        <div class="tab-pane" id="tab-errors">
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Erreur</th>
+                <th>Source</th>
+                <th>Correction</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">2026-05-04</td>
+                <td>"Centrine Balazar"</td>
+                <td>STT garbled</td>
+                <td>Sandrine Balthazard (Le Parloir)</td>
+                <td><span class="section-badge badge-green">✓ corrigé</span></td>
+              </tr>
+              <tr>
+                <td class="mono">2026-05-04</td>
+                <td>"Isaac Sen"</td>
+                <td>STT garbled</td>
+                <td>Isaac Souweine (Pender Ventures)</td>
+                <td><span class="section-badge badge-green">✓ corrigé</span></td>
+              </tr>
+              <tr>
+                <td class="mono">2026-05-04</td>
+                <td>ASKIO1 dans CTAs ep24</td>
+                <td>Invention</td>
+                <td>Retiré — non mentionné vidéo</td>
+                <td><span class="section-badge badge-green">✓ corrigé</span></td>
+              </tr>
+              <tr>
+                <td class="mono">2026-05-04</td>
+                <td>--app-location landing</td>
+                <td>Deploy Azure</td>
+                <td>--app-location /deploy-stage</td>
+                <td><span class="section-badge badge-green">✓ corrigé</span></td>
+              </tr>
+              <tr>
+                <td class="mono">2026-04-30</td>
+                <td>V1 claim 0.144m</td>
+                <td>Cherry-pick</td>
+                <td>Invalidé N trop faible</td>
+                <td><span class="section-badge badge-green">✓ corrigé</span></td>
+              </tr>
+              <tr>
+                <td class="mono">2026-04-30</td>
+                <td>V4 claim 0.034m</td>
+                <td>Cherry-pick</td>
+                <td>Invalidé — V6 ADAPTIVE valide</td>
+                <td><span class="section-badge badge-green">✓ corrigé</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="margin-top:10px;font-size:11px;color:var(--green)">✓ 0 erreurs ouvertes · 8/8 corrigées · Taux 100%</div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- BOTTOM GRID -->
+  <div class="bottom-grid">
+
+    <!-- MEMORY MAP -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">🧠 Mémoire persistante</div>
+        <span class="section-badge badge-purple">6 fichiers</span>
+      </div>
+      <div class="section-body">
+        <div class="memory-file">
+          <div class="memory-icon">👤</div>
+          <div class="memory-name">user_yoan_profile.md</div>
+          <div class="memory-type">user</div>
+        </div>
+        <div class="memory-file">
+          <div class="memory-icon">📁</div>
+          <div class="memory-name">project_openclaude.md</div>
+          <div class="memory-type">project</div>
+        </div>
+        <div class="memory-file">
+          <div class="memory-icon">🎙</div>
+          <div class="memory-name">project_dialogue_ep24.md</div>
+          <div class="memory-type">project</div>
+        </div>
+        <div class="memory-file">
+          <div class="memory-icon">🔄</div>
+          <div class="memory-name">feedback_dialogue_workflow.md</div>
+          <div class="memory-type">feedback</div>
+        </div>
+        <div class="memory-file">
+          <div class="memory-icon">⚡</div>
+          <div class="memory-name">feedback_multiagent_sota.md</div>
+          <div class="memory-type">feedback</div>
+        </div>
+        <div class="memory-file">
+          <div class="memory-icon">🗺</div>
+          <div class="memory-name">reference_openclaude_nav.md</div>
+          <div class="memory-type">reference</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHANNELS -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">📡 Canaux</div>
+        <span class="section-badge badge-green">5 actifs</span>
+      </div>
+      <div class="section-body">
+        <div class="channel-grid">
+
+          <div class="channel-card">
+            <div class="channel-top">
+              <div class="channel-name">GitHub dyad</div>
+              <div class="status-dot dot-yellow" style="width:7px;height:7px"></div>
+            </div>
+            <div class="channel-meta">Public · dernier commit J+1 (2026-04-30)</div>
+          </div>
+
+          <div class="channel-card">
+            <div class="channel-top">
+              <div class="channel-name">Azure SWA ep24</div>
+              <div class="status-dot dot-green" style="width:7px;height:7px"></div>
+            </div>
+            <div class="channel-meta">askio1.com/ep24 · DEPLOYED ✓</div>
+          </div>
+
+          <div class="channel-card">
+            <div class="channel-top">
+              <div class="channel-name">Claude Cowork</div>
+              <div class="status-dot dot-green" style="width:7px;height:7px"></div>
+            </div>
+            <div class="channel-meta">Session 4 active · orchestrateur principal</div>
+          </div>
+
+          <div class="channel-card">
+            <div class="channel-top">
+              <div class="channel-name">WSL Ubuntu</div>
+              <div class="status-dot dot-yellow" style="width:7px;height:7px"></div>
+            </div>
+            <div class="channel-meta">Daemon paused · python3 · Ollama fix pending</div>
+          </div>
+
+          <div class="channel-card">
+            <div class="channel-top">
+              <div class="channel-name">GitHub askio1-v2</div>
+              <div class="status-dot dot-yellow" style="width:7px;height:7px"></div>
+            </div>
+            <div class="channel-meta">Public · 81 API calls · tasks.json 8 items</div>
+          </div>
+
+          <div class="channel-card">
+            <div class="channel-top">
+              <div class="channel-name">Claude.ai chat</div>
+              <div class="status-dot dot-gray" style="width:7px;height:7px"></div>
+            </div>
+            <div class="channel-meta">Idéation · pas de persistance</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- SYSTEM HEALTH -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">💚 System Health</div>
+        <span class="section-badge badge-yellow">2 warnings</span>
+      </div>
+      <div class="section-body">
+
+        <div class="project-item" style="padding:8px 0">
+          <div>
+            <div class="project-name" style="font-size:11px">Architecture contexte</div>
+            <div class="project-sub">5 couches documentées · 4/5 couvertes</div>
+          </div>
+          <span class="section-badge badge-green">✓ OK</span>
+        </div>
+
+        <div class="project-item" style="padding:8px 0">
+          <div>
+            <div class="project-name" style="font-size:11px">Mémoire persistante</div>
+            <div class="project-sub">6 fichiers · index à jour · 0 stale connu</div>
+          </div>
+          <span class="section-badge badge-green">✓ OK</span>
+        </div>
+
+        <div class="project-item" style="padding:8px 0">
+          <div>
+            <div class="project-name" style="font-size:11px">Anti-hallucination defense</div>
+            <div class="project-sub">4-step checklist · progress artifact protocol</div>
+          </div>
+          <span class="section-badge badge-green">✓ OK</span>
+        </div>
+
+        <div class="project-item" style="padding:8px 0">
+          <div>
+            <div class="project-name" style="font-size:11px">Contexte session</div>
+            <div class="project-sub">Élevé (~72%) — checkpoint recommandé</div>
+          </div>
+          <span class="section-badge badge-yellow">⚠ WARN</span>
+        </div>
+
+        <div class="project-item" style="padding:8px 0">
+          <div>
+            <div class="project-name" style="font-size:11px">Retrieval vectorisé</div>
+            <div class="project-sub">Non implémenté · Grep textuel = fallback acceptable</div>
+          </div>
+          <span class="section-badge badge-yellow">⚠ GAP</span>
+        </div>
+
+        <div class="project-item" style="padding:8px 0">
+          <div>
+            <div class="project-name" style="font-size:11px">GitHub repo dyad</div>
+            <div class="project-sub">Dernier push J+1 — commit + push en attente (session 4)</div>
+          </div>
+          <span class="section-badge badge-yellow">⚠ STALE</span>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FULL WIDTH: SYSTEM FILES -->
+  <div class="section-full" style="margin-bottom:16px">
+    <div class="section-header">
+      <div class="section-title">📂 Système de fichiers opérationnel</div>
+      <span class="section-badge badge-gray">openClaude/</span>
+    </div>
+    <div style="padding:12px 16px">
+      <table class="mini-table">
+        <thead>
+          <tr>
+            <th>Fichier</th>
+            <th>Rôle</th>
+            <th>Dernière MàJ</th>
+            <th>État</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">VISION.md</td>
+            <td>Boussole stratégique · couches 6-9 · invariants</td>
+            <td class="mono">2026-04-29</td>
+            <td><span class="section-badge badge-green">✓ OK</span></td>
+          </tr>
+          <tr>
+            <td class="mono">OPERATIONS.md</td>
+            <td>Manuel d'équipe · rôles · canaux · protocoles · multi-agents</td>
+            <td class="mono">2026-05-04</td>
+            <td><span class="section-badge badge-green">✓ Nouveau</span></td>
+          </tr>
+          <tr>
+            <td class="mono">HEARTBEAT.md</td>
+            <td>État opérationnel courant · alertes · métriques pacte</td>
+            <td class="mono">2026-05-04</td>
+            <td><span class="section-badge badge-green">✓ À jour</span></td>
+          </tr>
+          <tr>
+            <td class="mono">SESSION_LOG.md</td>
+            <td>Changelog sessions · erreurs · décisions · timeline</td>
+            <td class="mono">2026-05-04</td>
+            <td><span class="section-badge badge-green">✓ Nouveau</span></td>
+          </tr>
+          <tr>
+            <td class="mono">EVAL.md</td>
+            <td>Rubrique 8 critères · grille anti-hallucination · log limitations</td>
+            <td class="mono">2026-05-04</td>
+            <td><span class="section-badge badge-green">✓ Nouveau</span></td>
+          </tr>
+          <tr>
+            <td class="mono">DASHBOARD.md</td>
+            <td>Template métriques sessions · alertes · running total</td>
+            <td class="mono">2026-05-04</td>
+            <td><span class="section-badge badge-green">✓ Nouveau</span></td>
+          </tr>
+          <tr>
+            <td class="mono">ROADMAP.md</td>
+            <td>Backlog P1–P5 · allocation tokens · critères triage</td>
+            <td class="mono">2026-04-29</td>
+            <td><span class="section-badge badge-yellow">⚠ Vérifier</span></td>
+          </tr>
+          <tr>
+            <td class="mono">dashboard-multiagent.html</td>
+            <td>Ce fichier · SPA observabilité · déployable Azure SWA</td>
+            <td class="mono">2026-05-04</td>
+            <td><span class="section-badge badge-blue">★ Livré</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<footer>
+  <div class="footer-left">ASKIO1/OPS · v1.0 · 120 boucles auto-amélioration · 2026-05-04</div>
+  <div class="footer-right">
+    <a class="footer-link" href="https://github.com/yoanMaisonneuve/dyad" target="_blank">dyad repo</a>
+    <a class="footer-link" href="https://askio1.com/ep24" target="_blank">dIAlogue ep24</a>
+    <span>Yoan Maisonneuve × Claude</span>
+  </div>
+</footer>
+
+<script>
+// ── DATE ──
+document.getElementById('current-date').textContent = new Date().toLocaleDateString('fr-CA', {
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit'
+});
+
+// ── TABS ──
+function switchTab(btn, id) {
+  const section = btn.closest('.section');
+  section.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  section.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+
+// ── PROGRESS BARS ANIMATE ──
+window.addEventListener('load', () => {
+  document.querySelectorAll('.progress-fill').forEach(el => {
+    const w = el.style.width;
+    el.style.width = '0%';
+    setTimeout(() => { el.style.width = w; }, 200);
+  });
+});
+
+// ── PULSE ALERTS ──
+const redAlerts = document.querySelectorAll('.alert-item');
+redAlerts.forEach((a, i) => {
+  a.style.animationDelay = (i * 0.1) + 's';
+});
+</script>
+
+</body>
+</html>
